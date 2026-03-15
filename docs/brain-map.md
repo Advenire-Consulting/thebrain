@@ -1,0 +1,183 @@
+# Brain System Map
+
+Complete reference of how brain code (`$PLUGIN_ROOT/`) relates to brain data (`~/.claude/brain/`). Updated 2026-03-10.
+
+## Architecture Overview
+
+```
+CODE ($PLUGIN_ROOT/)          DATA (~/.claude/brain/)
+─────────────────────────────           ──────────────────────
+hippocampus/                    ──►     hippocampus/
+  lib/dir-loader.js             reads     *.dir.json (9 projects)
+  lib/term-db.js                reads     terms.db (47MB)
+  lib/term-scanner.js           writes    terms.db
+  lib/extractor.js              writes    *.dir.json
+  scripts/scan.js               writes    *.dir.json
+  scripts/term-scan-cli.js      writes    terms.db
+  scripts/query.js              reads     *.dir.json, terms.db
+  scripts/link-recall.js        ORPHANED  (reads CC1 recall.db)
+
+hypothalamus/                   ──►     hippocampus/ (read-only)
+  lib/classifier.js             reads     *.dir.json (via dir-loader)
+  lib/config.js                 reads     hypothalamus-config.json (optional, doesn't exist yet)
+
+cerebral-cortex-v2/             ──►     (own data, + reads hippocampus)
+  lib/db.js                     reads/writes  cc2/recall.db (18MB)
+  lib/extractor.js              reads     hippocampus/*.dir.json (via dir-loader)
+  lib/search.js                 reads     hippocampus/*.dir.json (via dir-loader)
+  lib/decision-detector.js      reads     JSONL transcripts
+  lib/scanner.js                reads     JSONL transcripts → cc2/windows.json
+  lib/stopwords.js              reads     cc2/recall.db (dynamic stopwords)
+  scripts/pfc-trim.js           reads/writes  prefrontal-cortex.md, cc2/recall.db
+
+scripts/ (Python)               ──►     signals.db, prefrontal-live.md
+  generate-prefrontal.py        reads     signals.db → writes prefrontal-live.md
+  lessons.py                    reads/writes  signals.db
+  dopamine-helper.py            reads/writes  signals.db (via lessons.py)
+  oxytocin-helper.py            reads/writes  signals.db (via lessons.py)
+
+hooks/                          ──►     (runtime wiring)
+  session-start                 reads     signals.db, prefrontal-live.md, tool-index.md
+  hypothalamus_hook.js          reads     hippocampus/*.dir.json (via classifier)
+  post-edit-hook.js             writes    hippocampus/terms.db (incremental)
+
+scripts/wrapup-mechanical.sh    ──►     (orchestrator — calls everything)
+```
+
+## Data Files
+
+### ~/.claude/brain/
+
+| File | Size | Read by | Written by | Rebuildable? |
+|------|------|---------|------------|-------------|
+| `hippocampus/*.dir.json` (9) | ~108K total | hypothalamus, CC2 search, CC2 extractor, query.js | hippocampus/scan.js | Yes — scan.js regenerates from codebase |
+| `hippocampus/terms.db` | 47MB | query.js (--find, --structure) | term-scan-cli.js, post-edit-hook.js | Yes — term-scan-cli.js rebuilds from codebase |
+| `signals.db` | 1.3MB | generate-prefrontal.py, session-start hook | dopamine-helper.py, oxytocin-helper.py | **No** — accumulated behavioral lessons |
+| `prefrontal-cortex.md` | ~2K | /hello, /continue, pfc-trim.js, session-start hook | /wrapup (Claude writes entries) | No — session summaries written by Claude |
+| `prefrontal-live.md` | ~9K | session-start hook (loaded into context) | generate-prefrontal.py | Yes — generated from signals.db |
+| `.pfc-loaded-size` | 4B | /hello, /continue (skip-read check) | session-start hook, wrapup-mechanical.sh | Yes — just a byte count |
+
+### $PLUGIN_ROOT/cerebral-cortex-v2/
+
+| File | Size | Read by | Written by | Rebuildable? |
+|------|------|---------|------------|-------------|
+| `windows.json` | 75K | extract.js, search.js, read-window.js | scan.js | Yes — scan.js rebuilds from JSONL |
+| `recall.db` | 18MB | search.js, read-window.js, stopwords.js | extract.js, pfc-trim.js | Mostly — scan+extract rebuilds all except `stopword_candidates` and Claude summaries |
+
+### JSONL transcripts (source data, not brain-owned)
+
+| Location | What | Touched by |
+|----------|------|-----------|
+| `~/.claude/projects/<workspace-encoded-path>/*.jsonl` | Session transcripts | CC2 scanner reads, CC2 read-window reads |
+
+## Orphaned / Archived
+
+| File | Status | Notes |
+|------|--------|-------|
+| `~/.claude/brain/recall.db` (118MB) | **ORPHANED** | CC1 conversation store. Nothing references it. Archive to `brain/archived/`. |
+| `~/.claude/brain/hippocampus.md` (191B) | **ORPHANED** | Old single-file hippocampus. Replaced by `hippocampus/*.dir.json`. |
+| `~/.claude/brain/limbic.md` (8.6K) | **ORPHANED** | Old limbic forces file. Folded into `signals.db` + generated `prefrontal-live.md`. |
+| `hippocampus/scripts/link-recall.js` | **ORPHANED** | Queries CC1 `cerebral-cortex/recall.db` schema (chunks, sessions, file_refs). CC2 uses different schema. |
+| `hypothalamus-config.json` | **UNUSED** | config.js looks for it but falls back to defaults. File has never been created. |
+
+## Cross-Region Dependencies
+
+```
+                    ┌─────────────────┐
+                    │   signals.db    │
+                    │ (lessons+forces)│
+                    └───────┬─────────┘
+                            │ read
+                    ┌───────▼─────────┐
+                    │ generate-       │
+                    │ prefrontal.py   │
+                    └───────┬─────────┘
+                            │ write
+                    ┌───────▼─────────┐
+                    │prefrontal-live.md│◄── session-start hook loads into context
+                    └─────────────────┘
+
+┌──────────────┐    ┌─────────────────┐    ┌──────────────────┐
+│  *.dir.json  │───►│  hypothalamus   │    │  CC2 recall.db   │
+│ (hippocampus)│    │  (blast radius) │    │  (search index)  │
+│              │───►│                 │    │                  │
+└──────┬───────┘    └─────────────────┘    └────────┬─────────┘
+       │                                            │
+       │ read                                       │ read
+       │            ┌─────────────────┐             │
+       └───────────►│   CC2 search    │◄────────────┘
+                    │   CC2 extract   │
+                    └────────┬────────┘
+                             │ read
+                    ┌────────▼────────┐
+                    │ JSONL transcripts│
+                    │ (session files)  │
+                    └─────────────────┘
+
+┌──────────────┐
+│  terms.db    │◄── post-edit-hook (incremental)
+│ (hippocampus)│◄── term-scan-cli (full rebuild)
+│              │──► query.js --find, --structure
+└──────────────┘
+
+┌──────────────────┐    ┌─────────────────┐
+│prefrontal-cortex │───►│   pfc-trim.js   │───► CC2 recall.db
+│     .md          │    │ (migrates old   │     (window_summaries)
+│ (Claude writes)  │    │  entries to CC2) │
+└──────────────────┘    └─────────────────┘
+```
+
+## Hooks (Runtime Event Flow)
+
+### SessionStart (startup, resume, compact, clear)
+1. Check if `signals.db` is newer than `prefrontal-live.md` → regenerate if stale
+2. Record `prefrontal-cortex.md` byte size to `.pfc-loaded-size`
+3. Emit `prefrontal-live.md` + `tool-index.md` as context → Claude loads behavioral rules
+
+### PreToolUse (Edit, Write, MultiEdit, Bash)
+1. **Edit/Write/MultiEdit:** Extract file path → load DIR files → classify sensitivity + count dependents → warn/block
+2. **Bash:** Extract paths from command → classify against hippocampus map → warn on sensitive paths
+
+### PostToolUse (Edit, Write, MultiEdit)
+1. Identify which project the edited file belongs to (via DIR files)
+2. Re-scan that single file into `terms.db` (incremental update)
+
+## Wrapup Flow (wrapup-mechanical.sh)
+
+```
+Step 0a: hippocampus/scan.js       → *.dir.json (full rebuild, ~5s)
+Step 0b: hippocampus/term-scan-cli  → terms.db (incremental)
+Step 0c: cc2/scan.js               → windows.json (find new windows)
+Step 0c: cc2/extract.js            → recall.db (terms, files, projects, decisions, summaries)
+Step 1:  cc2/pfc-trim.js           → prefrontal-cortex.md (keep 3, migrate overflow to recall.db)
+Step 2:  generate-prefrontal.py    → prefrontal-live.md (from signals.db)
+Step 3:  Update .pfc-loaded-size   → size marker for skip-read optimization
+```
+
+## Slash Commands and Their Brain Touchpoints
+
+| Command | Reads | Writes |
+|---------|-------|--------|
+| `/hello` | prefrontal-cortex.md, .pfc-loaded-size | — |
+| `/wrapup` | project memory files | prefrontal-cortex.md, project memory, then calls wrapup-mechanical.sh |
+| `/continue` | prefrontal-cortex.md, project memory | prefrontal-cortex.md, project memory |
+| `/dopamine` | signals.db (surface existing lessons) | signals.db (insert/reinforce lesson) |
+| `/oxytocin` | signals.db (surface existing forces) | signals.db (insert/reinforce force) |
+| `/db-backup` | — | ~/backups/thebrain/ (copies of signals.db, terms.db, DIR files, cc2 recall.db) |
+
+## Backup Strategy
+
+| Data | Backed up by | Location | Notes |
+|------|-------------|----------|-------|
+| `signals.db` | /db-backup | `~/backups/thebrain/` | **Critical — not rebuildable** |
+| `terms.db` | /db-backup | `~/backups/thebrain/` | Rebuildable but slow (~47MB) |
+| `*.dir.json` | /db-backup | `~/backups/thebrain/hippocampus-$TS/` | Rebuildable via scan.js |
+| CC2 `recall.db` | /db-backup | `~/backups/thebrain/` | Mostly rebuildable; stopword_candidates + Claude summaries are not |
+| `prefrontal-cortex.md` | /db-backup | `~/backups/thebrain/` | Not rebuildable — Claude-written session entries |
+| `prefrontal-live.md` | /db-backup | `~/backups/thebrain/` | Rebuildable from signals.db |
+
+## Git Tracking
+
+**Tracked (code):** All `.js`, `.py`, `.sh`, `.md` files in `$PLUGIN_ROOT/`
+**Tracked (data):** `windows.json` (small, diffable JSON)
+**Not tracked:** All `*.db` files, `.pfc-loaded-size`, session state files — covered by /db-backup

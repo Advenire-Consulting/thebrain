@@ -1,0 +1,11 @@
+{
+  "name": "thebrain",
+  "description": "Cognitive layer for Claude Code — code navigation, conversation recall, safety hooks, behavioral learning",
+  "version": "1.0.0",
+  "author": {
+    "name": "Advenire Consulting",
+    "url": "https://advenire.consulting"
+  },
+  "license": "MIT",
+  "keywords": ["memory", "navigation", "safety", "behavioral-learning", "conversation-recall"]
+}

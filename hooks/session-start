@@ -1,0 +1,136 @@
+#!/usr/bin/env bash
+# SessionStart hook for thebrain plugin
+# Generates prefrontal if stale, then outputs brain context as JSON
+
+set -uo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
+PLUGIN_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+BRAIN_DIR="$HOME/.claude/brain"
+
+# Check Node.js version — thebrain requires 18+
+NODE_MAJOR=$(node -e "console.log(process.versions.node.split('.')[0])" 2>/dev/null || echo "0")
+if [ "$NODE_MAJOR" -lt 18 ]; then
+    cat <<ERREOF
+{
+  "additional_context": "<!-- brain-loaded -->\n\n**TheBrain plugin error:** Node.js 18+ is required but found version $(node --version 2>/dev/null || echo 'unknown'). Please upgrade Node.js to use TheBrain.\n\n<!-- /brain-loaded -->"
+}
+ERREOF
+    exit 0
+fi
+
+# Check better-sqlite3 native module compatibility
+if ! node -e "require('$PLUGIN_ROOT/node_modules/better-sqlite3')" 2>/dev/null; then
+    cat <<REBUILDEOF
+{
+  "additional_context": "<!-- brain-loaded -->\n\n**TheBrain plugin error:** The better-sqlite3 native module needs rebuilding for your current Node.js version. Run:\n\n\`\`\`bash\ncd $PLUGIN_ROOT && npm rebuild better-sqlite3\n\`\`\`\n\nThen restart Claude.\n\n<!-- /brain-loaded -->"
+}
+REBUILDEOF
+    exit 0
+fi
+
+SIGNALS_DB="$BRAIN_DIR/signals.db"
+PFC_FILE="$BRAIN_DIR/prefrontal-live.md"
+
+# Regenerate prefrontal if stale or missing
+if [ -f "$SIGNALS_DB" ]; then
+    if [ ! -f "$PFC_FILE" ] || [ "$SIGNALS_DB" -nt "$PFC_FILE" ]; then
+        node "$PLUGIN_ROOT/scripts/generate-prefrontal.js" 2>/dev/null || true
+    fi
+fi
+
+# Record PFC file size so commands can skip re-reading if unchanged
+PFC_CORTEX="$BRAIN_DIR/prefrontal-cortex.md"
+PFC_SIZE_FILE="$BRAIN_DIR/.pfc-loaded-size"
+if [ -d "$BRAIN_DIR" ]; then
+    if [ -f "$PFC_CORTEX" ]; then
+        wc -c < "$PFC_CORTEX" | tr -d ' ' > "$PFC_SIZE_FILE"
+    else
+        echo "0" > "$PFC_SIZE_FILE"
+    fi
+fi
+
+# Build brain context into a temp file to avoid newline escaping issues
+TMPFILE=$(mktemp)
+trap 'rm -f "$TMPFILE"' EXIT
+
+{
+    echo "<!-- brain-loaded -->"
+    echo ""
+
+    # Setup detection — if no config exists, inline setup instructions
+    if [ ! -f "$BRAIN_DIR/config.json" ]; then
+        SETUP_FILE="$PLUGIN_ROOT/setup/SETUP.md"
+        echo "<EXTREMELY_IMPORTANT>"
+        echo "# TheBrain Plugin — Setup Required"
+        echo ""
+        echo "TheBrain is a cognitive layer plugin for Claude Code that provides code navigation, conversation recall, safety hooks, and behavioral learning. It is installed but not yet configured."
+        echo ""
+        echo "IMPORTANT: When the user starts a session, inform them: 'I see TheBrain is installed but needs initial setup. Would you like me to set it up now? It takes about 2 minutes.'"
+        echo ""
+        echo "When the user agrees to setup, read the full setup instructions from: $SETUP_FILE"
+        echo ""
+        echo "Key paths for setup:"
+        echo "- Plugin root: $PLUGIN_ROOT"
+        echo "- Brain data directory: $HOME/.claude/brain/"
+        echo "- Setup instructions: $SETUP_FILE"
+        echo "- Seed script: node $PLUGIN_ROOT/scripts/seed-signals.js"
+        echo "- Hippocampus scan: node $PLUGIN_ROOT/hippocampus/scripts/scan.js"
+        echo "- CC2 scan: node $PLUGIN_ROOT/cerebral-cortex-v2/scripts/scan.js"
+        echo "- Prefrontal generator: node $PLUGIN_ROOT/scripts/generate-prefrontal.js"
+        echo ""
+        echo "Do NOT attempt to build thebrain from scratch. It is already installed as a plugin. You are configuring it, not creating it."
+        echo "</EXTREMELY_IMPORTANT>"
+        echo ""
+    else
+        echo "# Prefrontal — Decision Gates"
+        echo ""
+
+        if [ -f "$PFC_FILE" ]; then
+            cat "$PFC_FILE"
+        else
+            echo "*No prefrontal-live.md found. Run setup to populate.*"
+        fi
+
+        # Brain tool index — always loaded so Claude knows what's available
+        # Performs $PLUGIN_ROOT variable substitution so paths resolve correctly
+        TOOL_INDEX="$PLUGIN_ROOT/docs/tool-index.md"
+        if [ -f "$TOOL_INDEX" ]; then
+            tool_content=$(cat "$TOOL_INDEX")
+            tool_content="${tool_content//\$PLUGIN_ROOT/$PLUGIN_ROOT}"
+            echo ""
+            echo "<EXTREMELY_IMPORTANT>"
+            echo "$tool_content"
+            echo "</EXTREMELY_IMPORTANT>"
+        fi
+    fi
+
+    echo ""
+    echo "<!-- /brain-loaded -->"
+} > "$TMPFILE"
+
+# Escape for JSON embedding
+escape_for_json() {
+    local s="$1"
+    s="${s//\\/\\\\}"
+    s="${s//\"/\\\"}"
+    s="${s//$'\n'/\\n}"
+    s="${s//$'\r'/\\r}"
+    s="${s//$'\t'/\\t}"
+    printf '%s' "$s"
+}
+
+brain_content=$(cat "$TMPFILE")
+escaped=$(escape_for_json "$brain_content")
+
+cat <<EOF
+{
+  "additional_context": "${escaped}",
+  "hookSpecificOutput": {
+    "hookEventName": "SessionStart",
+    "additionalContext": "${escaped}"
+  }
+}
+EOF
+
+exit 0

@@ -1,0 +1,16 @@
+{
+  "name": "thebrain",
+  "version": "1.0.0",
+  "description": "Cognitive layer for Claude Code — code navigation, conversation recall, safety hooks, behavioral learning",
+  "private": true,
+  "engines": { "node": ">=18.0.0" },
+  "dependencies": {
+    "better-sqlite3": "^12.6.2"
+  },
+  "scripts": {
+    "test": "node --test hippocampus/test/*.test.js cerebral-cortex-v2/test/*.test.js hypothalamus/test/*.test.js scripts/test/*.test.js test/*.test.js",
+    "scan": "node hippocampus/scripts/scan.js",
+    "search": "node cerebral-cortex-v2/scripts/search.js",
+    "setup": "echo 'Run Claude with --plugin-dir pointing here, then tell Claude: set up thebrain'"
+  }
+}
