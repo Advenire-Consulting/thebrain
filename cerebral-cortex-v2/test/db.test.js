@@ -103,6 +103,117 @@ describe('RecallDB', () => {
     fs.rmSync(dir, { recursive: true, force: true });
   });
 
+  it('creates window_search FTS5 table', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cc2-db-'));
+    const dbPath = path.join(dir, 'test-recall.db');
+    const { RecallDB } = require('../lib/db');
+    const db = new RecallDB(dbPath);
+
+    const tables = db.db.prepare(
+      "SELECT name FROM sqlite_master WHERE type='table' AND name='window_search'"
+    ).all();
+    assert.equal(tables.length, 1);
+
+    db.close();
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  it('insertSearchTerms populates FTS5 and matches queries', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cc2-db-'));
+    const dbPath = path.join(dir, 'test-recall.db');
+    const { RecallDB } = require('../lib/db');
+    const db = new RecallDB(dbPath);
+
+    const winId = db.insertWindow({
+      sessionId: 'fts-test', seq: 0,
+      startLine: 0, endLine: 100,
+      startTime: '2026-03-07T10:00:00Z', endTime: '2026-03-07T11:00:00Z',
+    });
+
+    db.insertSearchTerms(winId, {
+      userTerms: ['burger', 'portal', 'sidebar'],
+      assistantTerms: ['burger', 'collapse', 'menu'],
+    });
+
+    const matches = db.db.prepare(
+      "SELECT rowid FROM window_search WHERE window_search MATCH 'burger'"
+    ).all();
+    assert.equal(matches.length, 1);
+    assert.equal(matches[0].rowid, winId);
+
+    const noMatch = db.db.prepare(
+      "SELECT rowid FROM window_search WHERE window_search MATCH 'zebra'"
+    ).all();
+    assert.equal(noMatch.length, 0);
+
+    db.close();
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  it('searchCandidates returns matching windows', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cc2-db-'));
+    const dbPath = path.join(dir, 'test-recall.db');
+    const { RecallDB } = require('../lib/db');
+    const db = new RecallDB(dbPath);
+
+    const w1 = db.insertWindow({
+      sessionId: 's1', seq: 0, startLine: 0, endLine: 100,
+      startTime: '2026-03-07T10:00:00Z', endTime: '2026-03-07T11:00:00Z',
+    });
+    db.insertSearchTerms(w1, {
+      userTerms: ['burger', 'portal'],
+      assistantTerms: ['sidebar', 'collapse'],
+    });
+
+    const w2 = db.insertWindow({
+      sessionId: 's2', seq: 0, startLine: 0, endLine: 100,
+      startTime: '2026-03-06T10:00:00Z', endTime: '2026-03-06T11:00:00Z',
+    });
+    db.insertSearchTerms(w2, {
+      userTerms: ['booking', 'calendar'],
+      assistantTerms: ['availability'],
+    });
+
+    const results = db.searchCandidates(['burger']);
+    assert.equal(results.length, 1);
+    assert.equal(results[0].windowId, w1);
+
+    const both = db.searchCandidates(['burger', 'booking']);
+    assert.equal(both.length, 2);
+
+    db.close();
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  it('rebuildSearchIndex backfills FTS5 from existing window_terms', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cc2-db-'));
+    const dbPath = path.join(dir, 'test-recall.db');
+    const { RecallDB } = require('../lib/db');
+    const db = new RecallDB(dbPath);
+
+    const w1 = db.insertWindow({
+      sessionId: 'backfill', seq: 0, startLine: 0, endLine: 100,
+      startTime: '2026-03-07T10:00:00Z', endTime: '2026-03-07T11:00:00Z',
+    });
+    db.insertTerms(w1, [
+      { term: 'migration', source: 'user', lines: [10], count: 1 },
+      { term: 'schema', source: 'assistant', lines: [20], count: 1 },
+    ]);
+
+    const before = db.searchCandidates(['migration']);
+    assert.equal(before.length, 0);
+
+    const count = db.rebuildSearchIndex();
+    assert.equal(count, 1);
+
+    const after = db.searchCandidates(['migration']);
+    assert.equal(after.length, 1);
+    assert.equal(after[0].windowId, w1);
+
+    db.close();
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+
   it('inserts and retrieves decisions for a window', () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cc2-db-'));
     const tmpDb = path.join(dir, 'test-recall.db');

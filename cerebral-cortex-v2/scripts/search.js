@@ -81,6 +81,16 @@ function main() {
   console.log('='.repeat(60));
 
   var db = new RecallDB(DB_PATH);
+
+  // Auto-backfill FTS5 if empty but window_terms has data (first search after upgrade)
+  var ftsCount = db.db.prepare("SELECT COUNT(*) as c FROM window_search").get().c;
+  var termsCount = db.db.prepare("SELECT COUNT(DISTINCT window_id) as c FROM window_terms").get().c;
+  if (ftsCount === 0 && termsCount > 0) {
+    console.log('FTS5 search index empty — rebuilding from existing data...');
+    db.rebuildSearchIndex();
+    console.log('Rebuilt search index for ' + termsCount + ' windows.\n');
+  }
+
   var results = search(db, clusters, options);
 
   if (results.length === 0) {

@@ -32,61 +32,92 @@ function resolveProjectFromTerms(terms) {
   return null;
 }
 
+// FTS5-backed search: candidate retrieval via inverted index, then scoring
 function search(db, clusters, options) {
   options = options || {};
-  const anchorTime = options.anchorTime ? new Date(options.anchorTime) : new Date();
-  const limit = options.limit || 10;
-  const USER_WEIGHT = 2;
-  const ASSISTANT_WEIGHT = 1;
-  const PROJECT_BOOST = 3;
-  const FILE_BOOST = 2;
+  var anchorTime = options.anchorTime ? new Date(options.anchorTime) : new Date();
+  var limit = options.limit || 10;
+  var USER_WEIGHT = 2;
+  var ASSISTANT_WEIGHT = 1;
+  var PROJECT_BOOST = 3;
+  var FILE_BOOST = 2;
 
-  const allWindows = db.db.prepare('SELECT * FROM windows').all();
-  if (allWindows.length === 0) return [];
+  // 1. Collect all unique terms across all clusters
+  var allTerms = [];
+  for (var c = 0; c < clusters.length; c++) {
+    for (var t = 0; t < clusters[c].length; t++) {
+      if (allTerms.indexOf(clusters[c][t]) === -1) {
+        allTerms.push(clusters[c][t]);
+      }
+    }
+  }
+  if (allTerms.length === 0) return [];
 
-  const scored = [];
+  // 2. FTS5 candidate retrieval — single indexed query
+  var candidates = db.searchCandidates(allTerms);
+  if (candidates.length === 0) return [];
 
-  for (const win of allWindows) {
-    let totalScore = 0;
+  // 3. Load full window records for candidates only
+  var windowsById = {};
+  for (var ci = 0; ci < candidates.length; ci++) {
+    var wid = candidates[ci].windowId;
+    if (!windowsById[wid]) {
+      var win = db.db.prepare('SELECT * FROM windows WHERE id = ?').get(wid);
+      if (win) windowsById[wid] = win;
+    }
+  }
+
+  // 4. Score each candidate using same logic as before
+  var scored = [];
+
+  for (var i = 0; i < candidates.length; i++) {
+    var cand = candidates[i];
+    var win = windowsById[cand.windowId];
+    if (!win) continue;
+
+    var totalScore = 0;
     var allFocusLines = [];
 
-    for (const cluster of clusters) {
-      let clusterHits = 0;
+    for (var cc = 0; cc < clusters.length; cc++) {
+      var cluster = clusters[cc];
+      var clusterHits = 0;
       var clusterMax = cluster.length;
 
-      const resolvedProject = resolveProjectFromTerms(cluster);
+      var resolvedProject = resolveProjectFromTerms(cluster);
 
-      for (const term of cluster) {
-        const termRows = db.db.prepare(
+      for (var ti = 0; ti < cluster.length; ti++) {
+        var term = cluster[ti];
+
+        var termRows = db.db.prepare(
           'SELECT * FROM window_terms WHERE window_id = ? AND term = ?'
         ).all(win.id, term);
 
         if (termRows.length > 0) {
           clusterHits++;
-          for (const row of termRows) {
-            var weight = row.source === 'user' ? USER_WEIGHT : ASSISTANT_WEIGHT;
-            totalScore += row.count * weight;
-            var lines = JSON.parse(row.lines);
+          for (var r = 0; r < termRows.length; r++) {
+            var weight = termRows[r].source === 'user' ? USER_WEIGHT : ASSISTANT_WEIGHT;
+            totalScore += termRows[r].count * weight;
+            var lines = JSON.parse(termRows[r].lines);
             allFocusLines.push.apply(allFocusLines, lines);
           }
         }
 
-        const fileRows = db.db.prepare(
+        var fileRows = db.db.prepare(
           "SELECT * FROM window_files WHERE window_id = ? AND file_path LIKE ?"
         ).all(win.id, '%' + term + '%');
 
         if (fileRows.length > 0) {
           clusterHits++;
           totalScore += FILE_BOOST * fileRows.length;
-          for (const row of fileRows) {
-            var fLines = JSON.parse(row.lines);
+          for (var fr = 0; fr < fileRows.length; fr++) {
+            var fLines = JSON.parse(fileRows[fr].lines);
             allFocusLines.push.apply(allFocusLines, fLines);
           }
         }
       }
 
       if (resolvedProject) {
-        const projRow = db.db.prepare(
+        var projRow = db.db.prepare(
           'SELECT frequency FROM window_projects WHERE window_id = ? AND project = ?'
         ).get(win.id, resolvedProject);
 
@@ -102,6 +133,7 @@ function search(db, clusters, options) {
 
     if (totalScore === 0) continue;
 
+    // Time decay
     var endTime = new Date(win.end_time);
     var daysSince = Math.max(0, (anchorTime - endTime) / (1000 * 60 * 60 * 24));
     var decay = 1 / (1 + daysSince * 0.1);

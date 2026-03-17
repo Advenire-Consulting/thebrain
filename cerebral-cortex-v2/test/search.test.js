@@ -24,6 +24,10 @@ function seedDb(db) {
     { term: 'sidebar', source: 'user', lines: [15], count: 1 },
     { term: 'redesign', source: 'user', lines: [10], count: 1 },
   ]);
+  db.insertSearchTerms(w1, {
+    userTerms: ['burger', 'portal', 'collapse', 'sidebar', 'redesign'],
+    assistantTerms: ['burger'],
+  });
 
   // Window 2: michaelortegon, burger mentioned once
   const w2 = db.insertWindow({ sessionId: 'sess2', seq: 0, startLine: 0, endLine: 200, startTime: '2026-03-06T10:00:00Z', endTime: '2026-03-06T12:00:00Z' });
@@ -33,6 +37,10 @@ function seedDb(db) {
     { term: 'burger', source: 'user', lines: [100], count: 1 },
     { term: 'blog', source: 'user', lines: [10, 20, 30], count: 3 },
   ]);
+  db.insertSearchTerms(w2, {
+    userTerms: ['burger', 'blog'],
+    assistantTerms: [],
+  });
 
   // Window 3: advenire, no burger
   const w3 = db.insertWindow({ sessionId: 'sess3', seq: 0, startLine: 0, endLine: 150, startTime: '2026-03-05T10:00:00Z', endTime: '2026-03-05T11:00:00Z' });
@@ -41,6 +49,10 @@ function seedDb(db) {
     { term: 'booking', source: 'user', lines: [10, 20], count: 2 },
     { term: 'portal', source: 'user', lines: [10], count: 1 },
   ]);
+  db.insertSearchTerms(w3, {
+    userTerms: ['booking', 'portal'],
+    assistantTerms: [],
+  });
 }
 
 describe('search', () => {
@@ -78,9 +90,11 @@ describe('search', () => {
 
     const w1 = db.insertWindow({ sessionId: 'old', seq: 0, startLine: 0, endLine: 50, startTime: '2026-01-01T10:00:00Z', endTime: '2026-01-01T11:00:00Z' });
     db.insertTerms(w1, [{ term: 'scratchpad', source: 'user', lines: [10], count: 1 }]);
+    db.insertSearchTerms(w1, { userTerms: ['scratchpad'], assistantTerms: [] });
 
     const w2 = db.insertWindow({ sessionId: 'new', seq: 0, startLine: 0, endLine: 50, startTime: '2026-03-07T10:00:00Z', endTime: '2026-03-07T11:00:00Z' });
     db.insertTerms(w2, [{ term: 'scratchpad', source: 'user', lines: [10], count: 1 }]);
+    db.insertSearchTerms(w2, { userTerms: ['scratchpad'], assistantTerms: [] });
 
     const results = search(db, [['scratchpad']]);
     assert.equal(results[0].sessionId, 'new');

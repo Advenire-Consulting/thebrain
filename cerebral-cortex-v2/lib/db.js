@@ -75,6 +75,9 @@ CREATE TABLE IF NOT EXISTS stopword_candidates (
     promoted INTEGER DEFAULT 0,
     last_seen DATETIME DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE VIRTUAL TABLE IF NOT EXISTS window_search
+USING fts5(user_terms, assistant_terms, content='');
 `;
 
 class RecallDB {
@@ -274,6 +277,68 @@ class RecallDB {
     return this.db.prepare(
       'SELECT * FROM stopword_candidates ORDER BY noise_count DESC'
     ).all();
+  }
+
+  // ── FTS5 Search Index ──────────────────────────────────────────────────────
+
+  // Populate the FTS5 index for a window with deduplicated term lists
+  insertSearchTerms(windowId, { userTerms, assistantTerms }) {
+    this.db.prepare(
+      'INSERT INTO window_search(rowid, user_terms, assistant_terms) VALUES (?, ?, ?)'
+    ).run(windowId, userTerms.join(' '), assistantTerms.join(' '));
+  }
+
+  // Remove a window's entry from the FTS5 index (contentless delete syntax)
+  deleteSearchTerms(windowId) {
+    this.db.prepare(
+      "INSERT INTO window_search(window_search, rowid, user_terms, assistant_terms) VALUES('delete', ?, '', '')"
+    ).run(windowId);
+  }
+
+  // Query FTS5 for candidate windows matching any of the given terms
+  searchCandidates(terms) {
+    if (terms.length === 0) return [];
+    var query = terms
+      .map(function(t) { return '"' + t.replace(/[^a-z0-9_-]/gi, '') + '"'; })
+      .join(' OR ');
+    try {
+      return this.db.prepare(
+        'SELECT rowid as windowId, rank FROM window_search WHERE window_search MATCH ? ORDER BY rank'
+      ).all(query);
+    } catch (e) {
+      return [];
+    }
+  }
+
+  // Rebuild the FTS5 index from existing window_terms data (for upgrades/backfill)
+  rebuildSearchIndex() {
+    this.db.exec("DROP TABLE IF EXISTS window_search");
+    this.db.exec("CREATE VIRTUAL TABLE IF NOT EXISTS window_search USING fts5(user_terms, assistant_terms, content='')");
+
+    var windows = this.db.prepare('SELECT DISTINCT window_id FROM window_terms').all();
+    var insertFts = this.db.prepare(
+      'INSERT INTO window_search(rowid, user_terms, assistant_terms) VALUES (?, ?, ?)'
+    );
+
+    var self = this;
+    var rebuild = this.db.transaction(function() {
+      for (var i = 0; i < windows.length; i++) {
+        var wid = windows[i].window_id;
+        var userTerms = self.db.prepare(
+          "SELECT DISTINCT term FROM window_terms WHERE window_id = ? AND source = 'user'"
+        ).all(wid).map(function(r) { return r.term; });
+
+        var assistantTerms = self.db.prepare(
+          "SELECT DISTINCT term FROM window_terms WHERE window_id = ? AND source = 'assistant'"
+        ).all(wid).map(function(r) { return r.term; });
+
+        if (userTerms.length > 0 || assistantTerms.length > 0) {
+          insertFts.run(wid, userTerms.join(' '), assistantTerms.join(' '));
+        }
+      }
+    });
+    rebuild();
+    return windows.length;
   }
 
   close() {

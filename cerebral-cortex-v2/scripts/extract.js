@@ -75,6 +75,16 @@ async function extractAndStore(db, windowsIndex, filterLevel) {
         db.insertTerms(winId, termRows);
       }
 
+      // Populate FTS5 search index with deduplicated term lists
+      var userTermList = Object.keys(result.userTerms);
+      var assistantTermList = Object.keys(result.assistantTerms);
+      if (userTermList.length > 0 || assistantTermList.length > 0) {
+        db.insertSearchTerms(winId, {
+          userTerms: userTermList,
+          assistantTerms: assistantTermList,
+        });
+      }
+
       // Decision detection + mechanical summary generation
       if (!db.hasDecisions(winId)) {
         const decs = detectDecisions(filePath, win.startLine, win.endLine);
@@ -119,6 +129,7 @@ async function extractAndStore(db, windowsIndex, filterLevel) {
 async function main() {
   const filterLevel = process.argv[2] || 'medium';
   const force = process.argv.includes('--force');
+  const rebuildSearch = process.argv.includes('--rebuild-search');
 
   const { DEFAULT_RECALL_DB_PATH, DEFAULT_WINDOWS_PATH } = require('../lib/db');
   const INDEX_PATH = DEFAULT_WINDOWS_PATH;
@@ -141,6 +152,9 @@ async function main() {
       console.log('Preserving ' + claudeSummaries.length + ' Claude-written summaries...');
     }
     db.db.exec('DELETE FROM window_decisions; DELETE FROM window_summaries; DELETE FROM window_terms; DELETE FROM window_files; DELETE FROM window_projects; DELETE FROM windows;');
+    // Clear FTS5 index (contentless tables can't be bulk-deleted, so drop+recreate empty)
+    db.db.prepare("DROP TABLE IF EXISTS window_search").run();
+    db.db.prepare("CREATE VIRTUAL TABLE IF NOT EXISTS window_search USING fts5(user_terms, assistant_terms, content='')").run();
     // Restore Claude summaries after re-extraction (keyed by session+seq, reinserted in post-pass)
     if (claudeSummaries.length > 0) {
       db._preservedSummaries = claudeSummaries;
@@ -200,6 +214,13 @@ async function main() {
         linked++;
       }
     }
+  }
+
+  // Rebuild FTS5 search index on request or after force re-extraction
+  if (rebuildSearch || force) {
+    console.log('Rebuilding FTS5 search index...');
+    var rebuilt = db.rebuildSearchIndex();
+    console.log('Rebuilt FTS5 index for ' + rebuilt + ' windows');
   }
 
   console.log('\nExtracted: ' + stats.extracted);
