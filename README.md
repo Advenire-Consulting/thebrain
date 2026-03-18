@@ -10,6 +10,8 @@ Out of the box, Claude Code starts every session blank — no memory of past con
 
 **Navigates your code.** Maps file relationships, tracks blast radius (what breaks if you change this file), indexes every function and identifier across all your workspaces. Works cross-project — a shared library shows dependents from every project that imports it.
 
+**Saves tokens.** Orienting to a project typically costs 3-5 exploratory file reads — ~1500 tokens of content that persists in context for every subsequent turn. Over a 30-turn session, that compounds to 30,000-40,000 tokens of wasted context. TheBrain's directory maps replace that with a single ~400-token response that shows what every file does, so Claude goes straight to the files that matter.
+
 **Keeps you safe.** Hooks into every file edit and bash command. Warns before touching high-impact files, flags commands it can't fully analyze, blocks edits to sensitive files like databases without your confirmation.
 
 **Learns how you work.** A behavioral system that builds up over time. Flag moments that matter — pain points become rules ("never do this"), good patterns get reinforced ("always do this"). Your Claude gets better the more you use it.
@@ -31,11 +33,19 @@ Install the plugin, run guided setup (2 minutes), start working. The brain loads
 
 ### Hippocampus — Code Navigation
 
-Your spatial map. Scans all registered workspaces and builds a graph of how files connect — imports, exports, routes, database references. Gives Claude instant answers to questions like "what calls this function?", "what breaks if I change this file?", and "where's the auth middleware?" without expensive grep searches. Supports conversational aliases so you can say "show me the server" instead of remembering `lib/http/server.js`. Auto-discovers new projects when you add them.
+Your spatial map. Scans all registered workspaces and builds a structured index of how files connect — imports, exports, routes, database references, and what each file does.
+
+**Directory maps** (`--map <project>`) give Claude a full project overview in one call: every file with an auto-generated purpose summary (exports, routes, DB refs, import count) and optional narrative descriptions you can add over time. This is the first thing Claude checks when touching a project — it replaces the multi-file exploratory reads that burn tokens and pollute context.
+
+**Navigation** answers structural questions without grep: `--blast-radius` shows what depends on a file and what it imports, `--find` locates every occurrence of an identifier across all projects with line numbers, `--structure` returns function/class/interface definitions with line numbers, `--lookup` shows a file's exports, routes, and database references, and `--schema` returns database table structures.
+
+**Conversational aliases** let you say "show me the auth middleware" instead of remembering `lib/middleware/auth.js`. Aliases are preserved across re-scans. Auto-discovers new projects when you add workspace directories.
 
 ### Cerebral Cortex v2 — Conversation Recall
 
 Long-term memory. Indexes your Claude Code conversation history (the JSONL files Claude already saves) and makes them searchable. Each conversation gets broken into windows with extracted decisions, summaries, and key terms. When you ask "what was the reasoning behind the database migration?", Claude searches the index, finds the relevant window, and reads back the actual back-and-forth — not a summary, the real conversation. Works across all your workspaces.
+
+Search results include per-window decision digests so Claude can identify the right session before reading the full conversation. A filter sharpening system lets you flag noise terms that clutter results — terms flagged repeatedly get auto-promoted to the stopword list, keeping search quality high over time.
 
 ### Hypothalamus — Safety Hooks
 
