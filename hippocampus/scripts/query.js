@@ -119,6 +119,29 @@ switch (command) {
     break;
   }
 
+  case '--map': {
+    const project = args[1] || flag('--project');
+    if (!project) { console.error('Usage: --map <project> [path-filter]'); process.exit(1); }
+    const matched = dirs.filter(d => d.name.includes(project));
+    if (matched.length === 0) {
+      console.log(`No project matching "${project}"`);
+      process.exit(1);
+    }
+    // Optional path filter for subtree
+    const pathFilter = args[2] && !args[2].startsWith('--') ? args[2] : null;
+    for (const dir of matched) {
+      const output = { project: dir.name, root: dir.root, files: {} };
+      for (const [fileName, entry] of Object.entries(dir.files || {})) {
+        if (pathFilter && !fileName.startsWith(pathFilter)) continue;
+        const fileInfo = { purpose: entry.purpose || '' };
+        if (entry.description) fileInfo.description = entry.description;
+        output.files[fileName] = fileInfo;
+      }
+      printJson(output);
+    }
+    break;
+  }
+
   case '--schema': {
     const project = flag('--project');
     const filtered = project ? dirs.filter(d => d.name.includes(project)) : dirs;
@@ -201,6 +224,7 @@ Commands:
   --resolve <alias>                    Resolve conversational alias to file path
   --blast-radius <file> [--project p]  Show what imports/depends on a file
   --lookup <file>                      Show file entry (exports, routes, db, sensitivity)
+  --map <project> [path-filter]        Project directory map — what each file does
   --list-projects                      List all mapped projects with counts
   --list-aliases [--project p]         List conversational aliases
   --schema [--project p]               Show database schemas
@@ -211,6 +235,8 @@ Examples:
   --resolve "portal auth"
   --blast-radius db.js --project advenire-portal
   --lookup bookingPublic.js
+  --map signal-assistant
+  --map advenire-portal server/
   --list-aliases --project advenire
   --find escapeHtml
   --structure server-utils.js`);

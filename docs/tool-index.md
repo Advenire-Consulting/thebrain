@@ -10,6 +10,7 @@ node $PLUGIN_ROOT/hippocampus/scripts/query.js <command>
 
 | Command | What it does |
 |---------|-------------|
+| `--map <project> [path]` | **Check first** — project directory map showing what each file does |
 | `--resolve <alias>` | Conversational name -> file path |
 | `--blast-radius <file>` | What imports it, what it imports |
 | `--lookup <file>` | Exports, routes, db refs, sensitivity |
@@ -17,6 +18,8 @@ node $PLUGIN_ROOT/hippocampus/scripts/query.js <command>
 | `--structure <file>` | Function/class/interface/type/def definitions with line numbers |
 | `--list-aliases` | Browse all conversational aliases |
 | `--schema [--project p]` | Database table structures |
+
+**Token-saving rule:** When the user asks you to work on a project you haven't touched this session, run `--map <project>` first. The map shows what every file does — both an auto-generated mechanical summary and an optional narrative description. This replaces reading multiple files just to get oriented. Only read individual files after the map tells you which ones matter.
 
 **Alias triage** — after scans, unmapped files are surfaced. Dismiss or assign:
 ```
@@ -83,7 +86,8 @@ Terms flagged as noise 5 times without a relevant hit are auto-promoted to the d
 | "What functions are in this file?" | `--structure <file>` |
 | "When did we work on X?" / "What's the state of X?" | Project memory files |
 | "What was the reasoning behind X?" | Project memory for pointers, CC2 for detail |
-| "What's in this project?" | `--list-aliases` or `--list-projects` |
+| "What's in this project?" / "What does each file do?" | `--map <project>` |
+| "What aliases exist?" | `--list-aliases` or `--list-projects` |
 
 ## When Standard Tools Are Shorter
 

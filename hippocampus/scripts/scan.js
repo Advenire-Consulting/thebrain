@@ -73,15 +73,20 @@ function snapshotSchemas(projectDir) {
 function scanProject(projectDir, name, root, outputDir) {
   const hippocampusDir = outputDir || DEFAULT_HIPPOCAMPUS_DIR;
 
-  // Load existing aliases and _dismissed
+  // Load existing aliases, _dismissed, and descriptions from previous DIR file
   let existingAliases = {};
   let existingDismissed = [];
+  let existingDescriptions = {};
   const existingPath = path.join(hippocampusDir, `${name}.dir.json`);
   if (fs.existsSync(existingPath)) {
     try {
       const existing = JSON.parse(fs.readFileSync(existingPath, 'utf-8'));
       existingAliases = existing.aliases || {};
       existingDismissed = existing._dismissed || [];
+      // Preserve narrative descriptions across re-scans
+      for (const [fileName, entry] of Object.entries(existing.files || {})) {
+        if (entry.description) existingDescriptions[fileName] = entry.description;
+      }
     } catch {
       // Ignore malformed existing file
     }
@@ -138,7 +143,7 @@ function scanProject(projectDir, name, root, outputDir) {
     const isAliased = aliasedPaths.has(`${root}${fileName}`) || aliasedPaths.has(fileName);
 
     if (connections >= 2 || isAliased) {
-      const entry = { purpose: '' };
+      const entry = {};
       if (data.imports.length > 0) entry.imports = data.imports;
       if (data.exports.length > 0) entry.exports = data.exports;
       if (data.routes.length > 0) entry.routes = data.routes;
@@ -150,6 +155,20 @@ function scanProject(projectDir, name, root, outputDir) {
       }
       if (entry.db && entry.db.length > 0) {
         entry.sensitivity = 'data';
+      }
+
+      // Auto-generate mechanical summary from extracted metadata
+      const parts = [];
+      if (data.exports.length > 0) parts.push('Exports: ' + data.exports.join(', '));
+      if (data.routes.length > 0) parts.push(data.routes.length + ' route' + (data.routes.length > 1 ? 's' : ''));
+      if (entry.db) parts.push('DB: ' + entry.db.join(', '));
+      const localImports = (data.imports || []).filter(imp => imp.startsWith('.'));
+      if (localImports.length > 0) parts.push(localImports.length + ' local import' + (localImports.length > 1 ? 's' : ''));
+      entry.purpose = parts.join(' | ') || '';
+
+      // Preserve narrative description from previous scan if it exists
+      if (existingDescriptions[fileName]) {
+        entry.description = existingDescriptions[fileName];
       }
 
       filesMap[fileName] = entry;

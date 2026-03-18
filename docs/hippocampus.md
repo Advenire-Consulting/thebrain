@@ -23,7 +23,7 @@ Spatial map of the codebase. Knows where every significant file lives, what it i
 | `lib/term-scanner.js` | Incremental scanner — size/mtime/hash skip logic |
 | `extractors/*.js` | Per-language extraction adapters (JS, TS, Python, Shell, CSS) |
 | `scripts/scan.js` | Filesystem scanner — produces DIR files, auto-discovers projects |
-| `scripts/query.js` | CLI — resolve, blast-radius, lookup, find, structure, schema |
+| `scripts/query.js` | CLI — map, resolve, blast-radius, lookup, find, structure, schema |
 | `scripts/term-scan-cli.js` | Incremental term index scan across all projects |
 | `~/.claude/brain/hippocampus/*.dir.json` | Output — one DIR file per project |
 | `~/.claude/brain/hippocampus/terms.db` | Term index database |
@@ -36,6 +36,7 @@ node $PLUGIN_ROOT/hippocampus/scripts/query.js <command>
 
 | Command | What it does |
 |---------|-------------|
+| `--map <project> [path-filter]` | **Check first** — project directory map (what each file does) |
 | `--resolve <alias>` | Conversational name → file path |
 | `--blast-radius <file> [--project p]` | What imports it, what it imports |
 | `--lookup <file>` | Exports, routes, db refs, sensitivity |
@@ -57,6 +58,8 @@ node $PLUGIN_ROOT/hippocampus/scripts/query.js <command>
   },
   "files": {
     "calendar-server/database/db.js": {
+      "purpose": "Exports: getDb, closeDb | DB: unified.db",
+      "description": "SQLite connection manager — opens per-company DBs and the shared unified.db",
       "exports": ["getDb", "closeDb"],
       "db": ["unified.db"],
       "sensitivity": "data"
@@ -69,6 +72,17 @@ node $PLUGIN_ROOT/hippocampus/scripts/query.js <command>
   }
 }
 ```
+
+### File Description Fields
+
+Each file entry has two description layers:
+
+- **`purpose`** (auto-generated) — Mechanical summary built from extracted metadata: exports, route count, DB refs, import count. Regenerated on every scan. No judgment required.
+- **`description`** (narrative, optional) — Plain-English explanation of what the file does and why it matters. Written by Claude during sessions when files are worked on. Preserved across re-scans.
+
+When `--map` is queried, both are shown. The `description` gives quick orientation; `purpose` gives structural facts. Together they replace the need to read files just to understand a project's layout.
+
+**Enriching descriptions during sessions:** When you edit a file that has no `description`, add one to the DIR file before the session ends. One sentence, written for someone with zero context. The wrapup re-scan preserves it.
 
 ## File Inclusion Rules
 
@@ -110,7 +124,7 @@ Run manually: `node $PLUGIN_ROOT/hippocampus/scripts/scan.js`
 
 **Auto-discovery:** Scans all directories in `/websites/` that contain code files. New projects are automatically detected — no registration needed. Projects with names that don't match their directory (e.g., `advenire.consulting` → `advenire-portal`) use `NAME_OVERRIDES` in scan.js.
 
-Preserves existing aliases and `_dismissed` lists across re-scans.
+Preserves existing aliases, `_dismissed` lists, and `description` fields across re-scans. The `purpose` field is regenerated each time from current metadata.
 
 ## Alias Triage
 
