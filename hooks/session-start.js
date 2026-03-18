@@ -50,6 +50,31 @@ function main() {
     return;
   }
 
+  // Run pending database migrations
+  if (fs.existsSync(BRAIN_DIR)) {
+    try {
+      const { migrate } = require(path.join(PLUGIN_ROOT, 'lib', 'migrator'));
+      const Database = require(path.join(PLUGIN_ROOT, 'node_modules', 'better-sqlite3'));
+
+      if (fs.existsSync(SIGNALS_DB)) {
+        const sdb = new Database(SIGNALS_DB);
+        sdb.pragma('journal_mode = WAL');
+        migrate(sdb, path.join(PLUGIN_ROOT, 'migrations', 'signals'), { quiet: true });
+        sdb.close();
+      }
+
+      const recallDbPath = path.join(BRAIN_DIR, 'recall.db');
+      if (fs.existsSync(recallDbPath)) {
+        const rdb = new Database(recallDbPath);
+        rdb.pragma('journal_mode = WAL');
+        migrate(rdb, path.join(PLUGIN_ROOT, 'migrations', 'recall'), { quiet: true });
+        rdb.close();
+      }
+    } catch (err) {
+      process.stderr.write(`TheBrain: migration failed — ${err.message}\n`);
+    }
+  }
+
   // Regenerate prefrontal if stale or missing
   if (fs.existsSync(SIGNALS_DB)) {
     let shouldRegenerate = !fs.existsSync(PFC_FILE);

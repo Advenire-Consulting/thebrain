@@ -2,6 +2,7 @@ const readline = require('readline');
 const fs = require('fs');
 const path = require('path');
 const { tokenize, filterLight, filterMedium, filterHeavy } = require('./stopwords');
+const { classify } = require('./jsonl-adapter');
 
 const { loadConfig } = require('../../lib/config');
 
@@ -49,30 +50,9 @@ function getFilter(level) {
   return filterMedium;
 }
 
-function extractText(content) {
-  if (typeof content === 'string') return content;
-  if (Array.isArray(content)) {
-    return content
-      .filter(b => b.type === 'text')
-      .map(b => b.text)
-      .join(' ');
-  }
-  return '';
-}
-
-function extractToolFiles(content) {
-  if (!Array.isArray(content)) return [];
-  const results = [];
-  for (const block of content) {
-    if (block.type === 'tool_use' && block.input) {
-      const fp = block.input.file_path || block.input.path;
-      if (fp && typeof fp === 'string') {
-        results.push({ filePath: fp, tool: block.name });
-      }
-    }
-  }
-  return results;
-}
+// extractText and extractToolFiles are now in jsonl-adapter.js
+// Re-exported here for backwards compatibility with external callers
+const { extractText, extractToolFiles } = require('./jsonl-adapter');
 
 async function extractWindow(filePath, startLine, endLine, filterLevel) {
   const filter = getFilter(filterLevel || 'medium');
@@ -94,9 +74,10 @@ async function extractWindow(filePath, startLine, endLine, filterLevel) {
     let obj;
     try { obj = JSON.parse(line); } catch { lineNum++; continue; }
 
-    if (obj.type === 'user' && obj.message) {
-      const text = extractText(obj.message.content);
-      const tokens = filter(tokenize(text));
+    const record = classify(obj);
+
+    if (record.kind === 'user' && record.text) {
+      const tokens = filter(tokenize(record.text));
       for (const t of tokens) {
         if (!userTerms[t]) userTerms[t] = { count: 0, lines: [] };
         userTerms[t].count++;
@@ -104,10 +85,9 @@ async function extractWindow(filePath, startLine, endLine, filterLevel) {
       }
     }
 
-    if (obj.type === 'assistant' && obj.message && obj.message.content) {
-      const text = extractText(obj.message.content);
-      if (text) {
-        const tokens = filter(tokenize(text));
+    if (record.kind === 'assistant') {
+      if (record.text) {
+        const tokens = filter(tokenize(record.text));
         for (const t of tokens) {
           if (!assistantTerms[t]) assistantTerms[t] = { count: 0, lines: [] };
           assistantTerms[t].count++;
@@ -115,8 +95,7 @@ async function extractWindow(filePath, startLine, endLine, filterLevel) {
         }
       }
 
-      const toolFiles = extractToolFiles(obj.message.content);
-      for (const { filePath: fp, tool } of toolFiles) {
+      for (const { filePath: fp, tool } of record.toolFiles) {
         if (!fileMap[fp]) fileMap[fp] = { lines: [], tools: new Set() };
         if (!fileMap[fp].lines.includes(lineNum)) fileMap[fp].lines.push(lineNum);
         fileMap[fp].tools.add(tool);

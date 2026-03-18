@@ -36,11 +36,12 @@ describe('scanDirectory and writeIndex', () => {
     // Non-jsonl file should be ignored
     fs.writeFileSync(path.join(dir, 'readme.txt'), 'not a jsonl');
 
-    const index = await scanDirectory(dir);
+    const { index, skipped } = await scanDirectory(dir);
     assert.equal(Object.keys(index).length, 2);
     assert.ok(index['sess1']);
     assert.ok(index['sess2']);
     assert.equal(index['sess1'].windows.length, 1);
+    assert.equal(skipped, 0);
 
     fs.rmSync(dir, { recursive: true, force: true });
   });

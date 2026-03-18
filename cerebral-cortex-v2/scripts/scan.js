@@ -1,5 +1,6 @@
+const fs = require('fs');
 const path = require('path');
-const { scanDirectory, writeIndex } = require('../lib/scanner');
+const { scanDirectory, readIndex, writeIndex } = require('../lib/scanner');
 const { DEFAULT_WINDOWS_PATH } = require('../lib/db');
 const { loadConfig } = require('../../lib/config');
 
@@ -15,16 +16,25 @@ async function main() {
     process.exit(1);
   }
 
+  // Load existing index for incremental scanning
+  let existingIndex = {};
+  if (fs.existsSync(INDEX_PATH)) {
+    try { existingIndex = readIndex(INDEX_PATH); } catch { /* rebuild from scratch */ }
+  }
+
   const fullIndex = {};
+  let totalSkipped = 0;
 
   for (const dir of config.conversationDirs) {
     const resolved = dir.replace(/^~/, require('os').homedir());
     console.log(`Scanning: ${resolved}`);
     try {
-      const index = await scanDirectory(resolved);
+      const { index, skipped } = await scanDirectory(resolved, existingIndex);
       const count = Object.keys(index).length;
       const windowCount = Object.values(index).reduce((sum, s) => sum + s.windows.length, 0);
-      console.log(`  ${count} sessions, ${windowCount} windows\n`);
+      const parsed = count - skipped;
+      console.log(`  ${count} sessions, ${windowCount} windows (${parsed} parsed, ${skipped} unchanged)\n`);
+      totalSkipped += skipped;
       Object.assign(fullIndex, index);
     } catch (err) {
       console.log(`  Error: ${err.message}\n`);
@@ -42,6 +52,7 @@ async function main() {
   console.log(`Windows:       ${windows}`);
   console.log(`Multi-window:  ${withCompact} sessions`);
   console.log(`Single-window: ${sessions - withCompact} sessions`);
+  console.log(`Skipped:       ${totalSkipped} (unchanged since last scan)`);
   console.log(`Index:         ${INDEX_PATH}`);
   console.log(`Size:          ${Math.round(JSON.stringify(fullIndex).length / 1024)}KB`);
 }

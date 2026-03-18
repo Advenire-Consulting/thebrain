@@ -2,6 +2,7 @@ const readline = require('readline');
 const fs = require('fs');
 const fsp = require('fs/promises');
 const path = require('path');
+const { classify } = require('./jsonl-adapter');
 
 async function scanFile(filePath) {
   const sessionId = path.basename(filePath, '.jsonl');
@@ -25,15 +26,15 @@ async function scanFile(filePath) {
       continue;
     }
 
-    const ts = obj.timestamp;
+    const record = classify(obj);
 
-    if (ts) {
-      if (!firstTimestamp) firstTimestamp = ts;
-      lastTimestamp = ts;
+    if (record.timestamp) {
+      if (!firstTimestamp) firstTimestamp = record.timestamp;
+      lastTimestamp = record.timestamp;
     }
 
-    if (obj.type === 'system' && obj.subtype === 'compact_boundary' && ts) {
-      boundaryLines.push({ line: lineNum, timestamp: ts });
+    if (record.kind === 'boundary' && record.timestamp) {
+      boundaryLines.push({ line: lineNum, timestamp: record.timestamp });
     }
 
     lineNum++;
@@ -106,9 +107,9 @@ async function scanFile(filePath) {
         if (resolved.has(wIdx)) continue;
         if (ln >= startLine) {
           try {
-            const obj = JSON.parse(line);
-            if (obj.timestamp) {
-              windows[wIdx].startTime = obj.timestamp;
+            const record = classify(JSON.parse(line));
+            if (record.timestamp) {
+              windows[wIdx].startTime = record.timestamp;
               resolved.add(wIdx);
             }
           } catch {}
@@ -122,24 +123,42 @@ async function scanFile(filePath) {
   return { sessionId, date, windows };
 }
 
-async function scanDirectory(dirPath) {
+async function scanDirectory(dirPath, existingIndex) {
   const entries = await fsp.readdir(dirPath);
   const jsonlFiles = entries.filter(f => f.endsWith('.jsonl'));
   const index = {};
+  let skipped = 0;
 
   for (const fname of jsonlFiles) {
-    const result = await scanFile(path.join(dirPath, fname));
+    const fullPath = path.join(dirPath, fname);
+    const sessionId = path.basename(fname, '.jsonl');
+
+    // Skip files that haven't changed since last scan
+    const existing = existingIndex && existingIndex[sessionId];
+    if (existing && existing._size != null && existing._mtime != null) {
+      const stat = fs.statSync(fullPath);
+      if (stat.size === existing._size && stat.mtimeMs === existing._mtime) {
+        index[sessionId] = existing;
+        skipped++;
+        continue;
+      }
+    }
+
+    const result = await scanFile(fullPath);
     if (result) {
+      const stat = fs.statSync(fullPath);
       index[result.sessionId] = {
         date: result.date,
         file: fname,
         dir: dirPath,
         windows: result.windows,
+        _size: stat.size,
+        _mtime: stat.mtimeMs,
       };
     }
   }
 
-  return index;
+  return { index, skipped };
 }
 
 function writeIndex(indexPath, data) {
