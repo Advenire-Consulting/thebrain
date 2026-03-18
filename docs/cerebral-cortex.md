@@ -97,7 +97,7 @@ Every window gets a **mechanical summary** from its decision markers (terms + fi
 
 ## Summary Pairing
 
-When PFC has >3 entries, `index-all.js` migrates overflow entries to CC2's `window_summaries` table, matched by session ID prefix + HH:MM timestamp proximity. Timezone-aware (PFC uses local time, windows use UTC).
+When PFC has >3 entries, `pfc-trim.js` migrates overflow entries to CC2's `window_summaries` table, matched by session ID prefix + date/time proximity. PFC entries include full date (YYYY-MM-DD HH:MM) for chronological ordering; windows use UTC timestamps.
 
 ## Dynamic Stopword Filter
 

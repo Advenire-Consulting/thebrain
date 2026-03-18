@@ -154,7 +154,7 @@ class RecallDB {
     return this.db.prepare('SELECT * FROM window_summaries WHERE window_id = ?').get(windowId);
   }
 
-  findWindowBySessionAndTime(sessionIdPrefix, hhmm) {
+  findWindowBySessionAndTime(sessionIdPrefix, hhmm, dateStr) {
     // Find all windows for sessions starting with this prefix
     const windows = this.db.prepare(
       "SELECT * FROM windows WHERE session_id LIKE ? ORDER BY end_time"
@@ -163,18 +163,20 @@ class RecallDB {
     if (windows.length === 0) return null;
     if (windows.length === 1) return windows[0];
 
-    // PFC timestamps are local time. Build a local Date to get correct UTC comparison.
-    // Derive date from the session's own timestamps (converted to local).
-    const sessionStart = new Date(windows[0].start_time);
-    const localDate = sessionStart.getFullYear() + '-' +
-      String(sessionStart.getMonth() + 1).padStart(2, '0') + '-' +
-      String(sessionStart.getDate()).padStart(2, '0');
-
     const [hh, mm] = hhmm.split(':').map(Number);
 
-    // Build target as local time — try session date and next day (midnight crossing)
-    const d1 = new Date(sessionStart);
-    d1.setHours(hh, mm, 0, 0);
+    // If date provided (YYYY-MM-DD format), use it directly.
+    // Otherwise fall back to deriving date from session start time.
+    let d1;
+    if (dateStr) {
+      const [y, m, d] = dateStr.split('-').map(Number);
+      d1 = new Date(y, m - 1, d, hh, mm, 0, 0);
+    } else {
+      const sessionStart = new Date(windows[0].start_time);
+      d1 = new Date(sessionStart);
+      d1.setHours(hh, mm, 0, 0);
+    }
+    // Try entry date and next day (midnight crossing)
     const d2 = new Date(d1.getTime() + 86400000);
 
     const candidates = [d1.getTime(), d2.getTime()];

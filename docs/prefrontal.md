@@ -49,7 +49,7 @@ Reads signals.db and produces `~/.claude/brain/prefrontal-live.md` — loaded at
 Separate from the generated prefrontal. This file tracks the last 3 sessions:
 
 ```markdown
-## 16:45 — thebrain [5390cc74]
+## 2026-03-08 16:45 — thebrain [5390cc74]
 Files: file1.js, file2.js
 Summary: One-line description of what was done
 Next: What to do next session

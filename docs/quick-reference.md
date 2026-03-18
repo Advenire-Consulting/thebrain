@@ -259,7 +259,7 @@ node $PLUGIN_ROOT/scripts/generate-prefrontal.js
 This is separate from `prefrontal-live.md`. It holds the last 3 session summaries written by `/wrapup` or `/continue save`. Format:
 
 ```
-## HH:MM — project-or-scope [SESSION_ID]
+## YYYY-MM-DD HH:MM — project-or-scope [SESSION_ID]
 Files: file1.js, file2.js
 Summary: What was done
 Next: What's pending

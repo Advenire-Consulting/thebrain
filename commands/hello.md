@@ -8,11 +8,11 @@ Brain rules and behavioral data are already loaded by session start hooks — th
 
 1. **Check brain-loaded marker** — Look for `<!-- brain-loaded -->` in system reminders. If present, skip to step 2. If missing (hook failed), read `~/.claude/brain/prefrontal-live.md` to restore behavioral rules and relational forces.
 
-2. **Check if `prefrontal-cortex.md` is loaded** — Look in system reminders for recent session entries (format: `## HH:MM — scope [SESSION_ID]`). If not present, read `~/.claude/brain/prefrontal-cortex.md`.
+2. **Check if `prefrontal-cortex.md` is loaded** — Look in system reminders for recent session entries (format: `## YYYY-MM-DD HH:MM — scope [SESSION_ID]`). If not present, read `~/.claude/brain/prefrontal-cortex.md`.
 
 3. **Internalize recent sessions** — `prefrontal-cortex.md` retains the last 3 session entries in this format:
    ```
-   ## HH:MM — scope [SESSION_ID]
+   ## YYYY-MM-DD HH:MM — scope [SESSION_ID]
    Files: file1.js, file2.js
    Summary: One-line description
    ```
