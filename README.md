@@ -10,7 +10,7 @@ Out of the box, Claude Code starts every session blank — no memory of past con
 
 **Navigates your code.** Maps file relationships, tracks blast radius (what breaks if you change this file), indexes every function and identifier across all your workspaces. Works cross-project — a shared library shows dependents from every project that imports it.
 
-**Saves tokens.** Orienting to a project typically costs 3-5 exploratory file reads — ~1500 tokens of content that persists in context for every subsequent turn. Over a 30-turn session, that compounds to 30,000-40,000 tokens of wasted context. TheBrain's directory maps replace that with a single ~400-token response that shows what every file does, so Claude goes straight to the files that matter.
+**Saves tokens.** Every tool the brain provides replaces an exploratory chain that would otherwise burn tokens — and those tokens don't just cost at read time, they persist in the conversation context for every subsequent turn. See [Token Savings](#token-savings) for the full breakdown.
 
 **Keeps you safe.** Hooks into every file edit and bash command. Warns before touching high-impact files, flags commands it can't fully analyze, blocks edits to sensitive files like databases without your confirmation.
 
@@ -64,6 +64,79 @@ Both compile into `prefrontal-live.md`, which loads at session start. The more y
 ### Session Continuity — `/hello`, `/continue`, `/wrapup`
 
 The glue. `/wrapup` captures what you worked on, what files you touched, and where you left off — written to short-term recall and indexed by the Cerebral Cortex. `/continue` restores that context in a new session or after context compaction. `/hello` is the lightweight greeting that orients Claude on what happened recently. Together they make Claude feel like it remembers, even across sessions and machines if you sync the folders.
+
+---
+
+## Token Savings
+
+Every brain tool replaces an exploratory chain — and the savings compound. Tokens loaded into context don't disappear after one turn; they're re-sent with every subsequent message. A 1,500-token exploratory read at turn 3 costs 1,500 tokens × every remaining turn. Over a 30-turn session, that's 40,000+ tokens of cumulative cost for files you never look at again.
+
+The estimates below compare what each brain tool returns versus what Claude would do without it. "Immediate" is the token cost at the moment of the call. "Cumulative" is the real cost over a full session, because everything loaded into context stays there.
+
+### Project Orientation (`--map`)
+
+| | Without TheBrain | With TheBrain |
+|---|---|---|
+| **What happens** | Glob/ls to see directory (~200 tok). Read entry point to understand architecture (~500 tok). Read 2-3 more files to see patterns (~1,000 tok). Maybe read a wrong file and backtrack (~500 tok). | One `--map` call returns every file with purpose summaries (~400 tok). |
+| **Immediate cost** | ~2,200 tokens across 4-5 tool calls | ~400 tokens, 1 tool call |
+| **Cumulative (30 turns)** | ~55,000 tokens (irrelevant file contents carried all session) | ~12,000 tokens (compact, all-useful context) |
+
+### Finding an Identifier (`--find`)
+
+| | Without TheBrain | With TheBrain |
+|---|---|---|
+| **What happens** | Grep across the codebase (~300 tok). Results show file paths but not enough context. Read 2-3 files around the matches (~1,500 tok). If it's cross-project, repeat the grep in other directories (~600 tok). | One `--find` call returns every occurrence with line numbers across all projects (~200-500 tok). |
+| **Immediate cost** | ~2,400 tokens across 4-6 tool calls | ~200-500 tokens, 1 tool call |
+| **Cumulative (30 turns)** | ~60,000 tokens | ~6,000-15,000 tokens |
+
+### Understanding a File (`--structure`, `--lookup`)
+
+| | Without TheBrain | With TheBrain |
+|---|---|---|
+| **What happens** | Read the entire file to see what's in it (~500-2,000 tok depending on file size). The whole file stays in context even if you only needed the function list. | `--structure` returns definitions with line numbers (~150 tok). `--lookup` returns exports, routes, DB refs (~150 tok). |
+| **Immediate cost** | ~500-2,000 tokens | ~150-300 tokens |
+| **Cumulative (30 turns)** | ~15,000-60,000 tokens | ~4,500-9,000 tokens |
+
+### Impact Analysis (`--blast-radius`)
+
+| | Without TheBrain | With TheBrain |
+|---|---|---|
+| **What happens** | Grep for the filename across the codebase to find imports (~300 tok). Read each importing file to understand the dependency (~500 tok each × 3-5 files). Cross-project dependencies require repeating in other workspace directories. | One call returns importers and imports with connection counts (~200-400 tok). |
+| **Immediate cost** | ~1,800-2,800 tokens across 4-6 tool calls | ~200-400 tokens, 1 tool call |
+| **Cumulative (30 turns)** | ~45,000-70,000 tokens | ~6,000-12,000 tokens |
+
+### Conversation Recall (CC2 Search)
+
+This is where the savings are largest. The question: *"When was the burger menu collapse last discussed?"*
+
+| | Without TheBrain | With TheBrain |
+|---|---|---|
+| **What happens** | Find the conversations directory (~100 tok). List JSONL session files (~200 tok). Grep across JSONL files for "burger" or "menu" (~500 tok). JSONL is raw — each line is a JSON object with role, content, base64 tool results, system prompts. Read 200 lines around a match to get conversation context (~3,000-5,000 tok of raw JSONL). If the first match is wrong, repeat for the next (~3,000-5,000 tok more). Often 2-4 attempts before finding the right conversation. | Search returns window IDs with decision digests (~150 tok). Read the digest to confirm it's the right one (~200 tok). Focused read of the cleaned conversation (~500-1,000 tok). |
+| **Immediate cost** | ~7,000-16,000 tokens across 5-10 tool calls | ~850-1,350 tokens across 3 tool calls |
+| **Cumulative (30 turns)** | ~175,000-400,000 tokens (raw JSONL is dense and stays in context) | ~25,000-40,000 tokens |
+
+### Database Schema (`--schema`)
+
+| | Without TheBrain | With TheBrain |
+|---|---|---|
+| **What happens** | Find database files (~200 tok). Find migration or schema files — might be in `migrations/`, `db/`, `server/db.js`, or inline (~300 tok + reads). Read schema definitions across multiple files (~1,000 tok). | One call returns all table structures (~300-500 tok). |
+| **Immediate cost** | ~1,500 tokens across 3-4 tool calls | ~300-500 tokens, 1 tool call |
+| **Cumulative (30 turns)** | ~37,500 tokens | ~9,000-15,000 tokens |
+
+### Behavioral Preferences (Prefrontal)
+
+| | Without TheBrain | With TheBrain |
+|---|---|---|
+| **What happens** | User re-explains preferences every session. "Don't use sudo." "Ask before deploying." "Match effort to question scope." Each correction costs a turn (~500 tok user message + ~500 tok Claude response) and the mistake it corrected already happened. Over weeks, the same corrections repeat. | Decision gates load at session start (~2,000 tok once). Rules are followed from turn 1. No correction cycles. |
+| **Per-session cost** | ~3,000-5,000 tokens in corrections (plus the wasted work from mistakes) | ~2,000 tokens (loaded once, prevents the mistakes entirely) |
+
+### The Compound Effect
+
+These savings stack. In a typical working session, Claude might orient to a project, look up a schema, find an identifier, check blast radius, and recall a past conversation. Without TheBrain, that's 5 exploratory chains totaling ~15,000-25,000 tokens of immediate reads — all persisting in context.
+
+With TheBrain, the same work costs ~2,000-3,000 tokens of compact, useful context.
+
+Over a 30-turn session, the difference is roughly **100,000-300,000 cumulative tokens** — context window space that stays clean for the actual work.
 
 ---
 
