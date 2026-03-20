@@ -24,7 +24,10 @@ function loadExtractors(extractorsDir) {
   let files;
   try {
     files = fs.readdirSync(extractorsDir).filter(f => f.endsWith('.js'));
-  } catch {
+  } catch (err) {
+    if (err.code !== 'ENOENT') {
+      process.stderr.write(`[extractor-registry] Error reading ${extractorsDir}: ${err.message}\n`);
+    }
     return { byExtension, allExtensions, extractors };
   }
 

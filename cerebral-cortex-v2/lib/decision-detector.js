@@ -1,23 +1,10 @@
 const fs = require('fs');
 const { tokenize, filterMedium } = require('./stopwords');
-
-const path = require('path');
-const { loadConfig } = require('../../lib/config');
+const { extractText } = require('./jsonl-adapter');
+const { getWorkspaceRoots } = require('./workspace');
 
 const EXPLORE_TOOLS = ['Read', 'Grep', 'Glob', 'Bash'];
 const WRITE_TOOLS = ['Write', 'Edit'];
-
-// Build list of workspace roots for path normalization
-let _workspaceRoots = null;
-function getWorkspaceRoots() {
-  if (_workspaceRoots) return _workspaceRoots;
-  const config = loadConfig();
-  _workspaceRoots = config.workspaces.map(w => {
-    const p = path.resolve(w.path);
-    return p.endsWith('/') ? p : p + '/';
-  });
-  return _workspaceRoots;
-}
 
 function normalizePath(filePath) {
   for (const root of getWorkspaceRoots()) {
@@ -66,17 +53,6 @@ function buildSummary(terms, fileAnchors) {
   const fileNames = fileAnchors.map(f => f.split('/').pop());
   const uniqueFiles = [...new Set(fileNames)];
   return termPart + ' — ' + uniqueFiles.join(', ');
-}
-
-function extractText(content) {
-  if (typeof content === 'string') return content;
-  if (Array.isArray(content)) {
-    return content
-      .filter(b => b.type === 'text')
-      .map(b => b.text)
-      .join(' ');
-  }
-  return '';
 }
 
 function detectDecisions(filePath, startLine, endLine) {

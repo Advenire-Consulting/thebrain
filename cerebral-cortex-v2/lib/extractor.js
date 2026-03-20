@@ -4,36 +4,13 @@ const path = require('path');
 const { tokenize, filterLight, filterMedium, filterHeavy } = require('./stopwords');
 const { classify } = require('./jsonl-adapter');
 
-const { loadConfig } = require('../../lib/config');
-
-let _workspaceRoots = null;
-function getWorkspaceRoots() {
-  if (_workspaceRoots) return _workspaceRoots;
-  const config = loadConfig();
-  _workspaceRoots = config.workspaces.map(w => {
-    const p = path.resolve(w.path);
-    return p.endsWith('/') ? p : p + '/';
-  });
-  return _workspaceRoots;
-}
+const { getWorkspaceRoots, getProjectRoots } = require('./workspace');
 
 function normalizePath(filePath) {
   for (const root of getWorkspaceRoots()) {
     if (filePath.startsWith(root)) return filePath.slice(root.length);
   }
   return filePath;
-}
-
-let _projectRoots = null;
-function getProjectRoots() {
-  if (_projectRoots) return _projectRoots;
-  try {
-    const { loadAllDIR } = require(path.join(__dirname, '..', '..', 'hippocampus', 'lib', 'dir-loader'));
-    _projectRoots = loadAllDIR().map(d => ({ name: d.name, root: d.root }));
-  } catch {
-    _projectRoots = [];
-  }
-  return _projectRoots;
 }
 
 function fileToProject(filePath) {

@@ -14,31 +14,52 @@
 
 const fs = require('fs');
 const path = require('path');
+const os = require('os');
 
-const DEBUG_LOG = '/tmp/hypothalamus-log.txt';
+const LOGS_DIR = path.join(os.homedir(), '.claude', 'logs');
+const DEBUG_LOG = path.join(LOGS_DIR, 'hypothalamus.log');
 
 function debugLog(msg) {
   try {
+    fs.mkdirSync(LOGS_DIR, { recursive: true });
+    // Truncate if over 1MB
+    try {
+      const stat = fs.statSync(DEBUG_LOG);
+      if (stat.size > 1024 * 1024) fs.truncateSync(DEBUG_LOG, 0);
+    } catch (err) {
+      if (err.code !== 'ENOENT') return;
+    }
     const ts = new Date().toISOString().slice(0, 23);
-    fs.appendFileSync(DEBUG_LOG, `[${ts}] ${msg}\n`);
-  } catch { /* ignore */ }
+    fs.appendFileSync(DEBUG_LOG, `[${ts}] ${msg}\n`, { mode: 0o600 });
+  } catch { /* logging must never crash the hook */ }
 }
 
 function loadState(sessionId, stateDir) {
   try {
     const filePath = path.join(stateDir, `hypothalamus_state_${sessionId}.json`);
-    return new Set(JSON.parse(fs.readFileSync(filePath, 'utf-8')));
-  } catch {
+    const parsed = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+    if (!Array.isArray(parsed)) return new Set();
+    return new Set(parsed);
+  } catch (err) {
+    if (err.code !== 'ENOENT') process.stderr.write(`[hypothalamus] State load failed: ${err.message}\n`);
     return new Set();
   }
+}
+
+function atomicWrite(filePath, data) {
+  const tmpPath = filePath + '.tmp.' + process.pid;
+  fs.writeFileSync(tmpPath, data, { mode: 0o600 });
+  fs.renameSync(tmpPath, filePath);
 }
 
 function saveState(sessionId, shown, stateDir) {
   try {
     fs.mkdirSync(stateDir, { recursive: true });
     const filePath = path.join(stateDir, `hypothalamus_state_${sessionId}.json`);
-    fs.writeFileSync(filePath, JSON.stringify([...shown]));
-  } catch { /* ignore */ }
+    atomicWrite(filePath, JSON.stringify([...shown]));
+  } catch (err) {
+    process.stderr.write(`[hypothalamus] State save failed: ${err.message}\n`);
+  }
 }
 
 function formatRedWarning(classification) {

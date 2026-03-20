@@ -82,12 +82,17 @@ function updateDIREntry(absolutePath, projectDir, projectName, hippocampusDir) {
 function resetHypothalamusWarning(sessionId, filePath) {
   const stateFile = path.join(require('os').homedir(), '.claude', `hypothalamus_state_${sessionId}.json`);
   try {
-    const state = JSON.parse(fs.readFileSync(stateFile, 'utf-8'));
+    let state = JSON.parse(fs.readFileSync(stateFile, 'utf-8'));
+    if (!Array.isArray(state)) state = [];
     const filtered = state.filter(key => !key.includes(filePath));
     if (filtered.length !== state.length) {
-      fs.writeFileSync(stateFile, JSON.stringify(filtered));
+      const tmpPath = stateFile + '.tmp.' + process.pid;
+      fs.writeFileSync(tmpPath, JSON.stringify(filtered), { mode: 0o600 });
+      fs.renameSync(tmpPath, stateFile);
     }
-  } catch { /* no state file — nothing to reset */ }
+  } catch (err) {
+    if (err.code !== 'ENOENT') process.stderr.write(`[post-edit] State reset failed: ${err.message}\n`);
+  }
 }
 
 // CLI entry point — called by hooks.json PostToolUse

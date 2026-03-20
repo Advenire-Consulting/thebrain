@@ -86,7 +86,9 @@ function main() {
     if (shouldRegenerate) {
       try {
         execFileSync('node', [path.join(PLUGIN_ROOT, 'scripts', 'generate-prefrontal.js')], { stdio: 'ignore' });
-      } catch { /* ignore */ }
+      } catch (err) {
+        process.stderr.write(`TheBrain: prefrontal generation failed — ${err.message}\n`);
+      }
     }
   }
 
@@ -99,7 +101,9 @@ function main() {
       } else {
         fs.writeFileSync(PFC_SIZE_FILE, '0');
       }
-    } catch { /* ignore */ }
+    } catch (err) {
+      process.stderr.write(`TheBrain: PFC size recording failed — ${err.message}\n`);
+    }
   }
 
   // Build brain context
@@ -137,9 +141,13 @@ function main() {
     // New user reminder — show commands for first 5 sessions
     const sessionCountFile = path.join(BRAIN_DIR, '.session-count');
     let sessionCount = 0;
-    try { sessionCount = parseInt(fs.readFileSync(sessionCountFile, 'utf-8').trim(), 10) || 0; } catch { /* first session */ }
+    try { sessionCount = parseInt(fs.readFileSync(sessionCountFile, 'utf-8').trim(), 10) || 0; } catch (err) {
+      if (err.code !== 'ENOENT') process.stderr.write(`TheBrain: session count read failed — ${err.message}\n`);
+    }
     sessionCount++;
-    try { fs.writeFileSync(sessionCountFile, String(sessionCount)); } catch { /* ignore */ }
+    try { fs.writeFileSync(sessionCountFile, String(sessionCount)); } catch (err) {
+      process.stderr.write(`TheBrain: session count write failed — ${err.message}\n`);
+    }
 
     if (sessionCount <= 5) {
       parts.push('> **Brain commands available:** `/hello` (session greeting) | `/continue` (restore context) | `/wrapup` (save session state) | `/dopamine` (flag behavioral moments) | `/oxytocin` (flag relational dynamics). Use `/wrapup` at the end of each session to build recall.');

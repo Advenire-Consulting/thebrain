@@ -1,4 +1,10 @@
+'use strict';
+
 const path = require('path');
+
+function escapeLike(str) {
+  return str.replace(/[%_\\]/g, '\\$&');
+}
 
 let _aliasMap = null;
 function getAliasMap() {
@@ -35,17 +41,17 @@ function resolveProjectFromTerms(terms) {
 // FTS5-backed search: candidate retrieval via inverted index, then scoring
 function search(db, clusters, options) {
   options = options || {};
-  var anchorTime = options.anchorTime ? new Date(options.anchorTime) : new Date();
-  var limit = options.limit || 10;
-  var USER_WEIGHT = 2;
-  var ASSISTANT_WEIGHT = 1;
-  var PROJECT_BOOST = 3;
-  var FILE_BOOST = 2;
+  const anchorTime = options.anchorTime ? new Date(options.anchorTime) : new Date();
+  const limit = options.limit || 10;
+  const USER_WEIGHT = 2;
+  const ASSISTANT_WEIGHT = 1;
+  const PROJECT_BOOST = 3;
+  const FILE_BOOST = 2;
 
   // 1. Collect all unique terms across all clusters
-  var allTerms = [];
-  for (var c = 0; c < clusters.length; c++) {
-    for (var t = 0; t < clusters[c].length; t++) {
+  const allTerms = [];
+  for (let c = 0; c < clusters.length; c++) {
+    for (let t = 0; t < clusters[c].length; t++) {
       if (allTerms.indexOf(clusters[c][t]) === -1) {
         allTerms.push(clusters[c][t]);
       }
@@ -54,70 +60,70 @@ function search(db, clusters, options) {
   if (allTerms.length === 0) return [];
 
   // 2. FTS5 candidate retrieval — single indexed query
-  var candidates = db.searchCandidates(allTerms);
+  const candidates = db.searchCandidates(allTerms);
   if (candidates.length === 0) return [];
 
   // 3. Load full window records for candidates only
-  var windowsById = {};
-  for (var ci = 0; ci < candidates.length; ci++) {
-    var wid = candidates[ci].windowId;
+  const windowsById = {};
+  for (let ci = 0; ci < candidates.length; ci++) {
+    const wid = candidates[ci].windowId;
     if (!windowsById[wid]) {
-      var win = db.db.prepare('SELECT * FROM windows WHERE id = ?').get(wid);
+      const win = db.db.prepare('SELECT * FROM windows WHERE id = ?').get(wid);
       if (win) windowsById[wid] = win;
     }
   }
 
-  // 4. Score each candidate using same logic as before
-  var scored = [];
+  // 4. Score each candidate
+  const scored = [];
 
-  for (var i = 0; i < candidates.length; i++) {
-    var cand = candidates[i];
-    var win = windowsById[cand.windowId];
+  for (let i = 0; i < candidates.length; i++) {
+    const cand = candidates[i];
+    const win = windowsById[cand.windowId];
     if (!win) continue;
 
-    var totalScore = 0;
-    var allFocusLines = [];
+    let totalScore = 0;
+    const allFocusLines = [];
 
-    for (var cc = 0; cc < clusters.length; cc++) {
-      var cluster = clusters[cc];
-      var clusterHits = 0;
-      var clusterMax = cluster.length;
+    for (let cc = 0; cc < clusters.length; cc++) {
+      const cluster = clusters[cc];
+      let clusterHits = 0;
+      const clusterMax = cluster.length;
 
-      var resolvedProject = resolveProjectFromTerms(cluster);
+      const resolvedProject = resolveProjectFromTerms(cluster);
 
-      for (var ti = 0; ti < cluster.length; ti++) {
-        var term = cluster[ti];
+      for (let ti = 0; ti < cluster.length; ti++) {
+        const term = cluster[ti];
 
-        var termRows = db.db.prepare(
+        const termRows = db.db.prepare(
           'SELECT * FROM window_terms WHERE window_id = ? AND term = ?'
         ).all(win.id, term);
 
         if (termRows.length > 0) {
           clusterHits++;
-          for (var r = 0; r < termRows.length; r++) {
-            var weight = termRows[r].source === 'user' ? USER_WEIGHT : ASSISTANT_WEIGHT;
+          for (let r = 0; r < termRows.length; r++) {
+            const weight = termRows[r].source === 'user' ? USER_WEIGHT : ASSISTANT_WEIGHT;
             totalScore += termRows[r].count * weight;
-            var lines = JSON.parse(termRows[r].lines);
+            const lines = JSON.parse(termRows[r].lines);
             allFocusLines.push.apply(allFocusLines, lines);
           }
         }
 
-        var fileRows = db.db.prepare(
-          "SELECT * FROM window_files WHERE window_id = ? AND file_path LIKE ?"
-        ).all(win.id, '%' + term + '%');
+        const fileRows = db.db.prepare(
+          "SELECT * FROM window_files WHERE window_id = ? AND file_path LIKE ? ESCAPE '\\'"
+        ).all(win.id, '%' + escapeLike(term) + '%');
 
         if (fileRows.length > 0) {
           clusterHits++;
           totalScore += FILE_BOOST * fileRows.length;
-          for (var fr = 0; fr < fileRows.length; fr++) {
-            var fLines = JSON.parse(fileRows[fr].lines);
+          for (let fr = 0; fr < fileRows.length; fr++) {
+            const fLines = JSON.parse(fileRows[fr].lines);
             allFocusLines.push.apply(allFocusLines, fLines);
           }
         }
       }
 
       if (resolvedProject) {
-        var projRow = db.db.prepare(
+        const projRow = db.db.prepare(
           'SELECT frequency FROM window_projects WHERE window_id = ? AND project = ?'
         ).get(win.id, resolvedProject);
 
@@ -127,21 +133,21 @@ function search(db, clusters, options) {
         }
       }
 
-      var clusterScore = clusterMax > 0 ? clusterHits / clusterMax : 0;
+      const clusterScore = clusterMax > 0 ? clusterHits / clusterMax : 0;
       totalScore *= (0.5 + 0.5 * clusterScore);
     }
 
     if (totalScore === 0) continue;
 
     // Time decay
-    var endTime = new Date(win.end_time);
-    var daysSince = Math.max(0, (anchorTime - endTime) / (1000 * 60 * 60 * 24));
-    var decay = 1 / (1 + daysSince * 0.1);
+    const endTime = new Date(win.end_time);
+    const daysSince = Math.max(0, (anchorTime - endTime) / (1000 * 60 * 60 * 24));
+    const decay = 1 / (1 + daysSince * 0.1);
     totalScore *= decay;
 
-    allFocusLines.sort(function(a, b) { return a - b; });
-    var focusStart = allFocusLines.length > 0 ? allFocusLines[0] : win.start_line;
-    var focusEnd = allFocusLines.length > 0 ? allFocusLines[allFocusLines.length - 1] : win.end_line;
+    allFocusLines.sort((a, b) => a - b);
+    const focusStart = allFocusLines.length > 0 ? allFocusLines[0] : win.start_line;
+    const focusEnd = allFocusLines.length > 0 ? allFocusLines[allFocusLines.length - 1] : win.end_line;
 
     scored.push({
       sessionId: win.session_id,
@@ -156,7 +162,7 @@ function search(db, clusters, options) {
     });
   }
 
-  scored.sort(function(a, b) { return b.score - a.score; });
+  scored.sort((a, b) => b.score - a.score);
   return scored.slice(0, limit);
 }
 

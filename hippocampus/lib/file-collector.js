@@ -33,7 +33,12 @@ function collectCodeFiles(projectDir, extensionSet) {
 
     let entries;
     try { entries = fs.readdirSync(dir, { withFileTypes: true }); }
-    catch { return; }
+    catch (err) {
+      if (err.code !== 'ENOENT' && err.code !== 'EACCES') {
+        process.stderr.write(`[file-collector] Error reading ${dir}: ${err.message}\n`);
+      }
+      return;
+    }
 
     for (const entry of entries) {
       if (shouldSkipDir(entry.name)) continue;

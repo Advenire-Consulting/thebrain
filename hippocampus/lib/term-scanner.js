@@ -47,7 +47,11 @@ function scanSingleFile(db, absolutePath, relativePath, project, content, stat) 
 function checkNeedsScan(absolutePath, storedMeta) {
   let stat;
   try { stat = fs.statSync(absolutePath); }
-  catch { return { deleted: true }; }
+  catch (err) {
+    if (err.code === 'ENOENT') return { deleted: true };
+    process.stderr.write(`[term-scanner] Unexpected error reading ${absolutePath}: ${err.message}\n`);
+    return { deleted: true };
+  }
 
   if (!storedMeta) {
     return { needsScan: true, content: fs.readFileSync(absolutePath, 'utf-8'), stat };

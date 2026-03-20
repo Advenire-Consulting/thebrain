@@ -25,8 +25,8 @@ function loadAllDIR(dirPath) {
       if (parsed.name && parsed.root) {
         dirs.push(parsed);
       }
-    } catch {
-      // Skip malformed files
+    } catch (err) {
+      process.stderr.write(`[dir-loader] Failed to load ${f}: ${err.message}\n`);
     }
   }
 
@@ -80,10 +80,14 @@ function getBlastRadius(dirs, fileName, projectName) {
   const fileEntry = dir.files[fileName];
   const imports = fileEntry ? (fileEntry.imports || []) : [];
 
+  const fileBase = path.basename(fileName, path.extname(fileName));
   const importedBy = [];
   for (const [name, entry] of Object.entries(dir.files)) {
     if (name === fileName) continue;
-    if ((entry.imports || []).some(imp => imp.includes(fileName) || fileName.includes(path.basename(imp)))) {
+    if ((entry.imports || []).some(imp => {
+      const impBase = path.basename(imp, path.extname(imp));
+      return impBase === fileBase;
+    })) {
       importedBy.push(name);
     }
   }

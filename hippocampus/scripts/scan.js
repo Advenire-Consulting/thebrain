@@ -284,11 +284,12 @@ function countConnections(filesMap) {
   for (const [fileName, entry] of Object.entries(filesMap)) {
     const localImports = (entry.imports || []).filter(imp => imp.startsWith('.'));
     counts[fileName] = (counts[fileName] || 0) + localImports.length;
-    // Count importedBy
+    // Count importedBy — compare basenames to avoid substring false positives
+    const fileBase = path.basename(fileName, path.extname(fileName));
     for (const otherFile of Object.keys(filesMap)) {
       if (otherFile === fileName) continue;
       const otherImports = (filesMap[otherFile].imports || []);
-      if (otherImports.some(imp => imp.includes(path.basename(fileName, path.extname(fileName))))) {
+      if (otherImports.some(imp => path.basename(imp, path.extname(imp)) === fileBase)) {
         counts[fileName] = (counts[fileName] || 0) + 1;
       }
     }

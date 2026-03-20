@@ -300,39 +300,39 @@ class RecallDB {
   // Query FTS5 for candidate windows matching any of the given terms
   searchCandidates(terms) {
     if (terms.length === 0) return [];
-    var query = terms
-      .map(function(t) { return '"' + t.replace(/[^a-z0-9_-]/gi, '') + '"'; })
+    const query = terms
+      .map(t => '"' + t.replace(/[^a-z0-9_-]/gi, '') + '"')
       .join(' OR ');
     try {
       return this.db.prepare(
-        'SELECT rowid as windowId, rank FROM window_search WHERE window_search MATCH ? ORDER BY rank'
+        'SELECT rowid as windowId FROM window_search WHERE window_search MATCH ?'
       ).all(query);
-    } catch (e) {
+    } catch (err) {
+      process.stderr.write(`[recall-db] FTS5 query failed for "${query}": ${err.message}\n`);
       return [];
     }
   }
 
   // Rebuild the FTS5 index from existing window_terms data (for upgrades/backfill)
   rebuildSearchIndex() {
-    this.db.exec("DROP TABLE IF EXISTS window_search");
+    this.db.exec('DROP TABLE IF EXISTS window_search');
     this.db.exec("CREATE VIRTUAL TABLE IF NOT EXISTS window_search USING fts5(user_terms, assistant_terms, content='')");
 
-    var windows = this.db.prepare('SELECT DISTINCT window_id FROM window_terms').all();
-    var insertFts = this.db.prepare(
+    const windows = this.db.prepare('SELECT DISTINCT window_id FROM window_terms').all();
+    const insertFts = this.db.prepare(
       'INSERT INTO window_search(rowid, user_terms, assistant_terms) VALUES (?, ?, ?)'
     );
 
-    var self = this;
-    var rebuild = this.db.transaction(function() {
-      for (var i = 0; i < windows.length; i++) {
-        var wid = windows[i].window_id;
-        var userTerms = self.db.prepare(
+    const rebuild = this.db.transaction(() => {
+      for (const row of windows) {
+        const wid = row.window_id;
+        const userTerms = this.db.prepare(
           "SELECT DISTINCT term FROM window_terms WHERE window_id = ? AND source = 'user'"
-        ).all(wid).map(function(r) { return r.term; });
+        ).all(wid).map(r => r.term);
 
-        var assistantTerms = self.db.prepare(
+        const assistantTerms = this.db.prepare(
           "SELECT DISTINCT term FROM window_terms WHERE window_id = ? AND source = 'assistant'"
-        ).all(wid).map(function(r) { return r.term; });
+        ).all(wid).map(r => r.term);
 
         if (userTerms.length > 0 || assistantTerms.length > 0) {
           insertFts.run(wid, userTerms.join(' '), assistantTerms.join(' '));

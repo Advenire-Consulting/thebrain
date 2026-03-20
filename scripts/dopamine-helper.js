@@ -16,8 +16,14 @@ function parseArgs(argv) {
     else if (arg === '--title' && argv[i + 1]) args.title = argv[++i];
     else if (arg === '--entry' && argv[i + 1]) args.entry = argv[++i];
     else if (arg === '--severity' && argv[i + 1]) args.severity = argv[++i];
-    else if (arg === '--weight' && argv[i + 1]) args.weight = parseInt(argv[++i], 10);
-    else if (arg === '--limit' && argv[i + 1]) args.limit = parseInt(argv[++i], 10);
+    else if (arg === '--weight' && argv[i + 1]) {
+      args.weight = parseInt(argv[++i], 10);
+      if (isNaN(args.weight)) { console.error('Error: --weight must be a number'); process.exit(1); }
+    }
+    else if (arg === '--limit' && argv[i + 1]) {
+      args.limit = parseInt(argv[++i], 10);
+      if (isNaN(args.limit)) { console.error('Error: --limit must be a number'); process.exit(1); }
+    }
   }
   return args;
 }
