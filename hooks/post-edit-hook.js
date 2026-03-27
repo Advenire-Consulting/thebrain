@@ -8,6 +8,13 @@ const { scanSingleFile } = require('../hippocampus/lib/term-scanner');
 const { loadExtractors } = require('../hippocampus/lib/extractor-registry');
 const extractorRegistry = loadExtractors(path.join(__dirname, '../hippocampus/extractors'));
 const { loadAllDIR } = require('../hippocampus/lib/dir-loader');
+let WorkingMemoryDB, bumpFileDlpfc;
+try {
+  WorkingMemoryDB = require('../dlpfc/lib/db').WorkingMemoryDB;
+  bumpFileDlpfc = require('../dlpfc/lib/tracker').bumpFile;
+} catch {
+  // dlPFC not yet installed — skip silently
+}
 
 /**
  * Update term index for a single file after edit.
@@ -137,6 +144,18 @@ if (require.main === module) {
 
   updateDIREntry(filePath, projectDir, matchedProject, hippocampusDir);
   resetHypothalamusWarning(sessionId, filePath);
+
+  // Bump dlPFC working memory if available
+  if (WorkingMemoryDB && bumpFileDlpfc) {
+    try {
+      const wmDb = new WorkingMemoryDB();
+      const relativeToProject = path.relative(projectDir, filePath);
+      bumpFileDlpfc(wmDb, matchedProject, relativeToProject, 'edit', sessionId, dirs.find(d => d.name === matchedProject));
+      wmDb.close();
+    } catch (err) {
+      process.stderr.write(`[post-edit] dlPFC bump failed: ${err.message}\n`);
+    }
+  }
 
   process.exit(0);
 }

@@ -20,4 +20,10 @@ Brain rules and behavioral data are already loaded by session start hooks — th
 
 4. **Don't** preload conversation data. The PFC entries are the summary. Only search CC2 if the user asks about something specific or you need more context mid-task.
 
-5. Greet briefly. Mention what the recent sessions touched (scope + summary) so the user knows you're oriented. Ask what they'd like to work on.
+5. **dlPFC working memory** — Check if `<!-- dlpfc-loaded -->` marker is present in system reminders. If present and contains file entries:
+   - Mention the active working memory: "Working memory is loaded for [project(s)] — I have context on [N] hot files."
+   - Ask: "Want to keep the working memory active for this session?"
+   - If they decline, disregard the dlPFC context for this session.
+   If the marker is not present or empty, skip silently.
+
+6. Greet briefly. Mention what the recent sessions touched (scope + summary) so the user knows you're oriented. Ask what they'd like to work on.

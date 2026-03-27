@@ -1,6 +1,6 @@
 # Brain System Map
 
-Complete reference of how brain code (`$PLUGIN_ROOT/`) relates to brain data (`~/.claude/brain/`). Updated 2026-03-10.
+Complete reference of how brain code (`$PLUGIN_ROOT/`) relates to brain data (`~/.claude/brain/`). Updated 2026-03-26.
 
 ## Architecture Overview
 
@@ -30,18 +30,24 @@ cerebral-cortex-v2/             ──►     (own data, + reads hippocampus)
   lib/stopwords.js              reads     cc2/recall.db (dynamic stopwords)
   scripts/pfc-trim.js           reads/writes  prefrontal-cortex.md, cc2/recall.db
 
-scripts/ (Python)               ──►     signals.db, prefrontal-live.md
-  generate-prefrontal.py        reads     signals.db → writes prefrontal-live.md
-  lessons.py                    reads/writes  signals.db
-  dopamine-helper.py            reads/writes  signals.db (via lessons.py)
-  oxytocin-helper.py            reads/writes  signals.db (via lessons.py)
+dlpfc/                          ──►     working-memory.db, dlpfc-live.md
+  lib/db.js                     reads/writes  working-memory.db
+  lib/tracker.js                reads/writes  working-memory.db (via db.js)
+  lib/generator.js              reads     working-memory.db → writes dlpfc-live.md
+  hooks/read-hook.js            writes    working-memory.db (PreToolUse Read)
+  scripts/wrapup-step.js        reads/writes  working-memory.db, reads cc2/recall.db
+
+scripts/                        ──►     signals.db, prefrontal-live.md
+  generate-prefrontal.js        reads     signals.db → writes prefrontal-live.md
+  lessons.js                    reads/writes  signals.db
+  seed-signals.js               writes    signals.db
 
 hooks/                          ──►     (runtime wiring)
-  session-start                 reads     signals.db, prefrontal-live.md, tool-index.md
+  session-start.js              reads     signals.db, prefrontal-live.md, tool-index.md, dlpfc-live.md
   hypothalamus_hook.js          reads     hippocampus/*.dir.json (via classifier)
-  post-edit-hook.js             writes    hippocampus/terms.db (incremental)
+  post-edit-hook.js             writes    hippocampus/terms.db (incremental), working-memory.db (dlPFC bump)
 
-scripts/wrapup-mechanical.sh    ──►     (orchestrator — calls everything)
+scripts/wrapup-mechanical.js    ──►     (orchestrator — calls everything including dlPFC)
 ```
 
 ## Data Files
@@ -52,10 +58,12 @@ scripts/wrapup-mechanical.sh    ──►     (orchestrator — calls everything
 |------|------|---------|------------|-------------|
 | `hippocampus/*.dir.json` (9) | ~108K total | hypothalamus, CC2 search, CC2 extractor, query.js | hippocampus/scan.js | Yes — scan.js regenerates from codebase |
 | `hippocampus/terms.db` | 47MB | query.js (--find, --structure) | term-scan-cli.js, post-edit-hook.js | Yes — term-scan-cli.js rebuilds from codebase |
-| `signals.db` | 1.3MB | generate-prefrontal.py, session-start hook | dopamine-helper.py, oxytocin-helper.py | **No** — accumulated behavioral lessons |
+| `signals.db` | 1.3MB | generate-prefrontal.js, session-start hook | lessons.js, seed-signals.js | **No** — accumulated behavioral lessons |
 | `prefrontal-cortex.md` | ~2K | /hello, /continue, pfc-trim.js, session-start hook | /wrapup (Claude writes entries) | No — session summaries written by Claude |
-| `prefrontal-live.md` | ~9K | session-start hook (loaded into context) | generate-prefrontal.py | Yes — generated from signals.db |
-| `.pfc-loaded-size` | 4B | /hello, /continue (skip-read check) | session-start hook, wrapup-mechanical.sh | Yes — just a byte count |
+| `prefrontal-live.md` | ~9K | session-start hook (loaded into context) | generate-prefrontal.js | Yes — generated from signals.db |
+| `working-memory.db` | ~small | dlpfc/generator.js, session-start hook | dlpfc hooks, dlpfc/wrapup-step.js | **Partially** — context_notes are Claude-authored, not rebuildable |
+| `dlpfc-live.md` | ~1K | session-start hook (loaded into context) | dlpfc/generator.js | Yes — generated from working-memory.db |
+| `.pfc-loaded-size` | 4B | /hello, /continue (skip-read check) | session-start hook, wrapup-mechanical.js | Yes — just a byte count |
 
 ### $PLUGIN_ROOT/cerebral-cortex-v2/
 
@@ -141,16 +149,23 @@ scripts/wrapup-mechanical.sh    ──►     (orchestrator — calls everything
 ### PostToolUse (Edit, Write, MultiEdit)
 1. Identify which project the edited file belongs to (via DIR files)
 2. Re-scan that single file into `terms.db` (incremental update)
+3. Bump file_heat score in working-memory.db (+1.0 for edits)
 
-## Wrapup Flow (wrapup-mechanical.sh)
+### PreToolUse (Read) — dlPFC only
+1. Extract file_path from tool input
+2. Resolve project via hippocampus DIR files
+3. Bump file_heat score in working-memory.db (+0.3 for reads)
+
+## Wrapup Flow (wrapup-mechanical.js)
 
 ```
 Step 0a: hippocampus/scan.js       → *.dir.json (full rebuild, ~5s)
 Step 0b: hippocampus/term-scan-cli  → terms.db (incremental)
 Step 0c: cc2/scan.js               → windows.json (find new windows)
 Step 0c: cc2/extract.js            → recall.db (terms, files, projects, decisions, summaries)
+Step 0d: dlpfc/wrapup-step.js      → working-memory.db (reconcile, decay), dlpfc-live.md (generate)
 Step 1:  cc2/pfc-trim.js           → prefrontal-cortex.md (keep 3, migrate overflow to recall.db)
-Step 2:  generate-prefrontal.py    → prefrontal-live.md (from signals.db)
+Step 2:  generate-prefrontal.js    → prefrontal-live.md (from signals.db)
 Step 3:  Update .pfc-loaded-size   → size marker for skip-read optimization
 ```
 
@@ -158,12 +173,12 @@ Step 3:  Update .pfc-loaded-size   → size marker for skip-read optimization
 
 | Command | Reads | Writes |
 |---------|-------|--------|
-| `/hello` | prefrontal-cortex.md, .pfc-loaded-size | — |
-| `/wrapup` | project memory files | prefrontal-cortex.md, project memory, then calls wrapup-mechanical.sh |
-| `/continue` | prefrontal-cortex.md, project memory | prefrontal-cortex.md, project memory |
+| `/hello` | prefrontal-cortex.md, .pfc-loaded-size, dlpfc-live.md | — |
+| `/wrapup` | project memory files | prefrontal-cortex.md, project memory, working-memory.db (context notes), then calls wrapup-mechanical.js |
+| `/continue` | prefrontal-cortex.md, project memory | prefrontal-cortex.md, project memory, working-memory.db (context notes) |
 | `/dopamine` | signals.db (surface existing lessons) | signals.db (insert/reinforce lesson) |
 | `/oxytocin` | signals.db (surface existing forces) | signals.db (insert/reinforce force) |
-| `/db-backup` | — | ~/backups/thebrain/ (copies of signals.db, terms.db, DIR files, cc2 recall.db) |
+| `/db-backup` | — | ~/backups/thebrain/ (copies of signals.db, terms.db, DIR files, cc2 recall.db, working-memory.db) |
 
 ## Backup Strategy
 
@@ -175,6 +190,8 @@ Step 3:  Update .pfc-loaded-size   → size marker for skip-read optimization
 | CC2 `recall.db` | /db-backup | `~/backups/thebrain/` | Mostly rebuildable; stopword_candidates + Claude summaries are not |
 | `prefrontal-cortex.md` | /db-backup | `~/backups/thebrain/` | Not rebuildable — Claude-written session entries |
 | `prefrontal-live.md` | /db-backup | `~/backups/thebrain/` | Rebuildable from signals.db |
+| `working-memory.db` | /db-backup | `~/backups/thebrain/` | **Partially rebuildable** — context_notes are Claude-authored |
+| `dlpfc-live.md` | /db-backup | `~/backups/thebrain/` | Rebuildable from working-memory.db |
 
 ## Git Tracking
 

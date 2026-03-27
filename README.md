@@ -16,6 +16,8 @@ Out of the box, Claude Code starts every session blank — no memory of past con
 
 **Learns how you work.** A behavioral system that builds up over time. Flag moments that matter — pain points become rules ("never do this"), good patterns get reinforced ("always do this"). Your Claude gets better the more you use it.
 
+**Tracks what you're working on.** File-level working memory that knows which files are hot right now. Reads and edits build heat; idle files cool off exponentially between sessions. Session start loads the hottest files with context — what you were doing with each one and why — so Claude picks up mid-thought, not mid-codebase.
+
 **Carries context across sessions.** `/wrapup` saves where you left off. `/continue` picks it back up. Short-term recall survives session restarts and context compaction.
 
 ## How it works
@@ -50,6 +52,14 @@ Search results include per-window decision digests so Claude can identify the ri
 ### Hypothalamus — Safety Hooks
 
 Your guardrails. Fires on every file edit and bash command before Claude executes them. Classifies paths by sensitivity (databases, secrets, config files get flagged), calculates blast radius (how many files depend on the one being changed), and warns or blocks accordingly. A file with 15 dependents gets a different warning than a leaf file nobody imports. Unparseable bash commands get flagged for manual review. All configurable — whitelist paths, override sensitivity, or disable entirely.
+
+### dlPFC — Working Memory
+
+File-level attention tracking. Every Read bumps a file's heat score (+0.3), every Edit bumps it harder (+1.0). Between sessions, scores decay exponentially — files you haven't touched in three sessions fade out, files you're actively working on stay hot.
+
+At wrapup, Claude enriches hot files with context notes ("refactoring the auth flow to support multi-tenant sessions") and one-line summaries. At session start, the top files per project load into context with their scores, notes, and summaries — so Claude knows not just *what files exist* but *which ones matter right now and why*.
+
+The decay curve is tuned for real work patterns: a file edited today has a score of 1.0. After one idle session it's 0.37, after two it's 0.14, after three it drops below the 0.1 threshold and falls out of working memory. Active files accumulate — a file touched across five sessions builds a score that takes several idle sessions to cool off.
 
 ### Prefrontal Cortex — Behavioral Learning
 
@@ -130,6 +140,14 @@ This is where the savings are largest. The question: *"When was the burger menu 
 | **What happens** | User re-explains preferences every session. "Don't use sudo." "Ask before deploying." "Match effort to question scope." Each correction costs a turn (~500 tok user message + ~500 tok Claude response) and the mistake it corrected already happened. Over weeks, the same corrections repeat. | Decision gates load at session start (~2,000 tok once). Rules are followed from turn 1. No correction cycles. |
 | **Per-session cost** | ~3,000-5,000 tokens in corrections (plus the wasted work from mistakes) | ~2,000 tokens (loaded once, prevents the mistakes entirely) |
 
+### Working Memory (dlPFC)
+
+| | Without TheBrain | With TheBrain |
+|---|---|---|
+| **What happens** | Claude starts every session blind. Even with `/hello` restoring *which* project you worked on, the first few turns are re-orientation: reading files to remember what was in progress, grepping for the function you were refactoring, re-discovering the test that was failing. If you touched 8 files last session, that's 8 Reads before real work begins. | Hot files load at session start with context notes (~200-400 tok total). Claude knows "this file was being refactored for multi-tenant auth" before you say anything. |
+| **Immediate cost** | ~4,000-8,000 tokens across 8-12 re-orientation reads | ~200-400 tokens, loaded automatically |
+| **Cumulative (30 turns)** | ~100,000-200,000 tokens (full file contents carried all session from re-reads) | ~6,000-12,000 tokens (compact context notes) |
+
 ### The Compound Effect
 
 These savings stack. In a typical working session, Claude might orient to a project, look up a schema, find an identifier, check blast radius, and recall a past conversation. Without TheBrain, that's 5 exploratory chains totaling ~15,000-25,000 tokens of immediate reads — all persisting in context.
@@ -165,6 +183,7 @@ claude
 - [Installation Guide](docs/installation.md) — detailed install steps and troubleshooting
 - [Quick Reference](docs/quick-reference.md) — how to view, modify, and maintain everything
 - [Architecture](docs/brain-map.md) — how the regions connect
+- [Working Memory (dlPFC)](docs/dlpfc.md) — file-level attention tracking and session context
 - [Tool Index](docs/tool-index.md) — full CLI reference for all brain tools
 
 ---

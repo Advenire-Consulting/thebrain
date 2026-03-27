@@ -33,6 +33,9 @@ function main() {
   runStep('Scanning CC2 windows...', path.join(THEBRAIN_DIR, 'cerebral-cortex-v2', 'scripts', 'scan.js'));
   runStep('Extracting CC2 metadata...', path.join(THEBRAIN_DIR, 'cerebral-cortex-v2', 'scripts', 'extract.js'));
 
+  // 0d. dlPFC working memory — decay, reconcile references, generate output
+  runStep('Updating working memory (dlPFC)...', path.join(THEBRAIN_DIR, 'dlpfc', 'scripts', 'wrapup-step.js'));
+
   // 1. Trim PFC entries and migrate overflow to CC2 recall.db
   runStep('Trimming PFC...', path.join(THEBRAIN_DIR, 'cerebral-cortex-v2', 'scripts', 'pfc-trim.js'));
 
