@@ -28,10 +28,14 @@ Captures project state for pickup later — whether after compaction, next sessi
    Summary: One-line description of what was done
    Next: Where we left off / what's pending
    ```
-   Use the current date and time (YYYY-MM-DD HH:MM in 24h) and the project/scope from step 1. For `SESSION_ID`, find the most recent JSONL file across all conversation directories listed in `~/.claude/brain/config.json`, then take the first 8 characters of its filename. The indexer keeps the last 3 entries and clears older ones after ingestion.
+   Use the current date and time (YYYY-MM-DD HH:MM in 24h) and the project/scope from step 1. For `SESSION_ID`, run `node $PLUGIN_ROOT/scripts/session-id.js`. The indexer keeps the last 3 entries and clears older ones after ingestion.
 5b. **Update queued plans** — Read `~/.claude/brain/queued-plans.md`. If this session's `Next:` references a plan doc, add it if missing. If this session completed a queued item, check it off (`- [x]`). Remove checked items older than 2 sessions.
 5c. **Update DIR file if needed** — If a new conversational alias was used this session (user named a system/flow for the first time), append it to the relevant DIR file at `~/.claude/brain/hippocampus/<project>.dir.json`. Most sessions: skip silently.
-5d. **Enrich file descriptions** — Run `node $PLUGIN_ROOT/hippocampus/scripts/undescribed.js <project>` (scoped to the project you worked on). For each file listed that you edited or read in depth this session, add a `description` field to the DIR file entry — one sentence, plain language, for someone with zero context. Skip files you don't have context for; they'll get described in future sessions. If all files already have descriptions, skip silently.
+5d. **Enrich file descriptions** — Run `node $PLUGIN_ROOT/hippocampus/scripts/undescribed.js <project>` (scoped to the project you worked on). For each file listed that you edited or read in depth this session, add a description using:
+   ```bash
+   node $PLUGIN_ROOT/hippocampus/scripts/describe.js <project> <file-path> "description text"
+   ```
+   One sentence, plain language, for someone with zero context. Skip files you don't have context for; they'll get described in future sessions. If all files already have descriptions, skip silently.
 6. **dlPFC enrichment (if opted in at step 1)** — For each file you touched this session, write or update the `context_note` and `summary` in working memory:
    ```bash
    node -e "

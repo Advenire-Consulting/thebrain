@@ -19,13 +19,17 @@ Save current project state. Do all steps in order — do not ask to proceed, jus
    Summary: One-line description of what was done
    Next: Where we left off / what's pending
    ```
-   Use the current date/time (YYYY-MM-DD HH:MM, 24h). For `SESSION_ID`, find the most recent JSONL file across conversation directories in `~/.claude/brain/config.json`, take first 8 characters of its filename.
+   Use the current date/time (YYYY-MM-DD HH:MM, 24h). For `SESSION_ID`, run `node $PLUGIN_ROOT/scripts/session-id.js`.
 
 5b. **Update queued plans** — Read `~/.claude/brain/queued-plans.md`. If this session's `Next:` references a plan doc, add it if missing. If this session completed a queued item, check it off (`- [x]`). Remove checked items older than 2 sessions.
 
 5c. **Update DIR file if needed** — If a new conversational alias was used this session, append it to `~/.claude/brain/hippocampus/<project>.dir.json`. Most sessions: skip silently.
 
-5d. **Enrich file descriptions** — Run `node $PLUGIN_ROOT/hippocampus/scripts/undescribed.js <project>`. For each file listed that you edited or read in depth this session, add a `description` to the DIR entry — one sentence, plain language. Skip files you don't have context for.
+5d. **Enrich file descriptions** — Run `node $PLUGIN_ROOT/hippocampus/scripts/undescribed.js <project>`. For each file listed that you edited or read in depth this session, add a description using:
+   ```bash
+   node $PLUGIN_ROOT/hippocampus/scripts/describe.js <project> <file-path> "description text"
+   ```
+   One sentence, plain language. Skip files you don't have context for.
 
 6. **dlPFC enrichment (if opted in at step 1)** — For each file you touched this session, write or update the `context_note` and `summary` in working memory:
    ```bash
