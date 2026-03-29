@@ -24,6 +24,28 @@ describe('file-collector', () => {
     fs.writeFileSync(path.join(TEST_DIR, 'node_modules/pkg/index.js'), 'nope');
     fs.writeFileSync(path.join(TEST_DIR, 'Archived/old.js'), 'nope');
 
+    fs.mkdirSync(path.join(TEST_DIR, 'bin/Debug'), { recursive: true });
+    fs.mkdirSync(path.join(TEST_DIR, 'obj'), { recursive: true });
+    fs.mkdirSync(path.join(TEST_DIR, 'target/release'), { recursive: true });
+    fs.mkdirSync(path.join(TEST_DIR, 'build'), { recursive: true });
+    fs.mkdirSync(path.join(TEST_DIR, 'dist'), { recursive: true });
+    fs.mkdirSync(path.join(TEST_DIR, 'out'), { recursive: true });
+    fs.mkdirSync(path.join(TEST_DIR, 'vendor'), { recursive: true });
+    fs.mkdirSync(path.join(TEST_DIR, '.vs'), { recursive: true });
+    fs.mkdirSync(path.join(TEST_DIR, '.idea'), { recursive: true });
+    fs.mkdirSync(path.join(TEST_DIR, '.gradle'), { recursive: true });
+
+    fs.writeFileSync(path.join(TEST_DIR, 'bin/Debug/app.dll'), 'binary');
+    fs.writeFileSync(path.join(TEST_DIR, 'obj/project.assets.json'), '{}');
+    fs.writeFileSync(path.join(TEST_DIR, 'target/release/main'), 'binary');
+    fs.writeFileSync(path.join(TEST_DIR, 'build/output.js'), 'built');
+    fs.writeFileSync(path.join(TEST_DIR, 'dist/bundle.js'), 'bundled');
+    fs.writeFileSync(path.join(TEST_DIR, 'out/compiled.js'), 'compiled');
+    fs.writeFileSync(path.join(TEST_DIR, 'vendor/lib.go'), 'package lib');
+    fs.writeFileSync(path.join(TEST_DIR, '.vs/settings.json'), '{}');
+    fs.writeFileSync(path.join(TEST_DIR, '.idea/workspace.xml'), '<xml/>');
+    fs.writeFileSync(path.join(TEST_DIR, '.gradle/caches.bin'), 'cache');
+
     ({ collectCodeFiles } = require('../lib/file-collector'));
   });
 
@@ -66,6 +88,16 @@ describe('file-collector', () => {
     const files = collectCodeFiles(TEST_DIR, exts);
     const names = files.map(f => f.relative);
     assert.ok(!names.some(n => n.includes('Archived')));
+  });
+
+  it('skips build artifact and IDE directories', () => {
+    const exts = new Set(['.js', '.json', '.go', '.xml', '.dll']);
+    const files = collectCodeFiles(TEST_DIR, exts);
+    const names = files.map(f => f.relative);
+    for (const dir of ['bin', 'obj', 'target', 'build', 'dist', 'out', 'vendor', '.vs', '.idea', '.gradle']) {
+      assert.ok(!names.some(n => n.startsWith(dir + path.sep) || n.startsWith(dir + '/')),
+        `should skip ${dir}/ but found file inside it`);
+    }
   });
 
   it('returns absolute and relative paths', () => {

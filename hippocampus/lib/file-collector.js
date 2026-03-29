@@ -5,6 +5,12 @@ const path = require('path');
 
 const SKIP_DIRS_EXACT = new Set([
   'node_modules', '.git', '.worktrees', 'marked-for-deletion',
+  // Build output
+  'bin', 'obj', 'target', 'build', 'dist', 'out',
+  // Vendored dependencies
+  'vendor',
+  // IDE metadata
+  '.vs', '.idea', '.gradle',
 ]);
 
 function shouldSkipDir(name) {
