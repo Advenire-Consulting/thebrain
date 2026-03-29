@@ -174,17 +174,6 @@ function main() {
       parts.push('</EXTREMELY_IMPORTANT>');
     }
 
-    // dlPFC working memory — load if file exists and has content
-    const dlpfcPath = path.join(BRAIN_DIR, 'dlpfc-live.md');
-    if (fs.existsSync(dlpfcPath)) {
-      const dlpfcContent = fs.readFileSync(dlpfcPath, 'utf-8').trim();
-      if (dlpfcContent) {
-        parts.push('');
-        parts.push('<!-- dlpfc-loaded -->');
-        parts.push(dlpfcContent);
-        parts.push('<!-- /dlpfc-loaded -->');
-      }
-    }
   }
 
   parts.push('');

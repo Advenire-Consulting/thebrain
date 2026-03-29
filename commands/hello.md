@@ -20,10 +20,11 @@ Brain rules and behavioral data are already loaded by session start hooks — th
 
 4. **Don't** preload conversation data. The PFC entries are the summary. Only search CC2 if the user asks about something specific or you need more context mid-task.
 
-5. **dlPFC working memory** — Check if `<!-- dlpfc-loaded -->` marker is present in system reminders. If present and contains file entries:
-   - Mention the active working memory: "Working memory is loaded for [project(s)] — I have context on [N] hot files."
-   - Ask: "Want to keep the working memory active for this session?"
-   - If they decline, disregard the dlPFC context for this session.
-   If the marker is not present or empty, skip silently.
+5. **dlPFC working memory** — Check if `~/.claude/brain/dlpfc-live.md` exists by reading it. If it has content:
+   - Mention what's there: "Working memory available for [project(s)] — [N] hot files tracked."
+   - Ask: "Want me to load it for this session?"
+   - If yes, read the file and internalize the context.
+   - If no, skip — zero tokens spent on it.
+   If the file doesn't exist or is empty, skip silently.
 
 6. Greet briefly. Mention what the recent sessions touched (scope + summary) so the user knows you're oriented. Ask what they'd like to work on.
