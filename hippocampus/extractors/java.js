@@ -141,6 +141,12 @@ function extractDefinitions(content) {
   return defs;
 }
 
+// Extract the package declaration from a Java file
+function extractNamespace(filePath, content) {
+  const match = content.match(/package\s+([\w.]+)\s*;/);
+  return match ? match[1] : null;
+}
+
 module.exports = {
   extensions: ['.java'],
   extractImports,
@@ -148,4 +154,5 @@ module.exports = {
   extractRoutes,
   extractIdentifiers,
   extractDefinitions,
+  extractNamespace,
 };

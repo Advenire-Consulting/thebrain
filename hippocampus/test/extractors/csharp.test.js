@@ -217,4 +217,31 @@ describe('csharp extractor', () => {
       assert.strictEqual(run.line, 5);
     });
   });
+
+  describe('extractNamespace', () => {
+    it('extracts file-scoped namespace', () => {
+      const content = 'namespace MyApp.Models;\npublic class User {}';
+      assert.equal(ext.extractNamespace('User.cs', content), 'MyApp.Models');
+    });
+
+    it('extracts block-scoped namespace', () => {
+      const content = 'namespace MyApp.Models {\n  public class User {}\n}';
+      assert.equal(ext.extractNamespace('User.cs', content), 'MyApp.Models');
+    });
+
+    it('returns null when no namespace', () => {
+      const content = 'public class Program { static void Main() {} }';
+      assert.equal(ext.extractNamespace('Program.cs', content), null);
+    });
+
+    it('returns first namespace when multiple exist', () => {
+      const content = 'namespace First.One;\nnamespace Second.Two;';
+      assert.equal(ext.extractNamespace('Multi.cs', content), 'First.One');
+    });
+
+    it('handles whitespace variations', () => {
+      const content = 'namespace   MyApp.Services  ;';
+      assert.equal(ext.extractNamespace('Svc.cs', content), 'MyApp.Services');
+    });
+  });
 });

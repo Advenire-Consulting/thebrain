@@ -113,6 +113,21 @@ function scanProject(projectDir, name, root, outputDir) {
     };
   }
 
+  // Build namespace-to-files map for namespace-based languages (C#, Java)
+  const namespaceMap = {};
+  for (const [fileName, data] of Object.entries(fileData)) {
+    const ext = path.extname(fileName);
+    const extractor = registry.byExtension.get(ext);
+    if (extractor && typeof extractor.extractNamespace === 'function') {
+      const ns = extractor.extractNamespace(fileName, data.content);
+      if (ns) {
+        if (!namespaceMap[ns]) namespaceMap[ns] = [];
+        namespaceMap[ns].push(fileName);
+        data.namespace = ns;
+      }
+    }
+  }
+
   // Compute connection counts
   const connectionCount = {};
   for (const [fileName, data] of Object.entries(fileData)) {
@@ -130,6 +145,57 @@ function scanProject(projectDir, name, root, outputDir) {
       }
       if (fileData[resolved]) {
         connectionCount[resolved] = (connectionCount[resolved] || 0) + 1;
+      }
+    }
+
+    // Resolve namespace-based imports (C#, Java, etc.)
+    // Each resolved import counts as 1 connection for the importer and 1 for the target.
+    const nonLocalImports = data.imports.filter(imp => !imp.startsWith('.'));
+    for (const imp of nonLocalImports) {
+      // Direct namespace match: "using Foo.Bar" -> files in namespace "Foo.Bar"
+      if (namespaceMap[imp]) {
+        for (const target of namespaceMap[imp]) {
+          if (target !== fileName) {
+            connectionCount[fileName] = (connectionCount[fileName] || 0) + 1;
+            connectionCount[target] = (connectionCount[target] || 0) + 1;
+          }
+        }
+        continue;
+      }
+
+      // Prefix + type match: "import com.foo.bar.ClassName"
+      const lastDot = imp.lastIndexOf('.');
+      if (lastDot <= 0) continue;
+
+      const nsPrefix = imp.substring(0, lastDot);
+      const typeName = imp.substring(lastDot + 1);
+      let matched = false;
+
+      if (namespaceMap[nsPrefix]) {
+        for (const target of namespaceMap[nsPrefix]) {
+          if (target !== fileName && fileData[target].exports.includes(typeName)) {
+            connectionCount[fileName] = (connectionCount[fileName] || 0) + 1;
+            connectionCount[target] = (connectionCount[target] || 0) + 1;
+            matched = true;
+          }
+        }
+      }
+
+      // Second-level fallback for static imports: "com.foo.Bar.method" -> try "com.foo" + "Bar"
+      if (!matched && lastDot > 0) {
+        const secondDot = nsPrefix.lastIndexOf('.');
+        if (secondDot > 0) {
+          const nsPrefix2 = nsPrefix.substring(0, secondDot);
+          const typeName2 = nsPrefix.substring(secondDot + 1);
+          if (namespaceMap[nsPrefix2]) {
+            for (const target of namespaceMap[nsPrefix2]) {
+              if (target !== fileName && fileData[target].exports.includes(typeName2)) {
+                connectionCount[fileName] = (connectionCount[fileName] || 0) + 1;
+                connectionCount[target] = (connectionCount[target] || 0) + 1;
+              }
+            }
+          }
+        }
       }
     }
   }

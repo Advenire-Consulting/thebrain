@@ -219,4 +219,21 @@ describe('java extractor', () => {
       assert.strictEqual(defs.find(d => d.name === 'run').line, 4);
     });
   });
+
+  describe('extractNamespace', () => {
+    it('extracts package declaration', () => {
+      const content = 'package com.myapp.models;\npublic class User {}';
+      assert.equal(ext.extractNamespace('User.java', content), 'com.myapp.models');
+    });
+
+    it('returns null when no package declaration', () => {
+      const content = 'public class Main { public static void main(String[] args) {} }';
+      assert.equal(ext.extractNamespace('Main.java', content), null);
+    });
+
+    it('handles leading whitespace', () => {
+      const content = '  package com.myapp.services;';
+      assert.equal(ext.extractNamespace('Svc.java', content), 'com.myapp.services');
+    });
+  });
 });

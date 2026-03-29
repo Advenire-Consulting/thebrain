@@ -88,6 +88,24 @@ When `--map` is queried, both are shown. The `description` gives quick orientati
 
 A file appears in the `files` map if it has 2+ connections (imports + imported-by count) or has a conversational alias.
 
+### Connection Resolution Strategies
+
+**Relative-path languages** (JS, TS, Python, CSS, Shell): Imports start with `.` or are bare specifiers. `scan.js` resolves the relative path to a file in the project. This is the original mechanism.
+
+**Namespace-based languages** (C#, Java): Imports are namespace/package strings (e.g., `using MyApp.Models`, `import com.foo.bar.MyClass`). `scan.js` builds a namespace-to-files map from `extractNamespace()` and resolves imports against it. Three resolution levels:
+
+1. **Direct namespace match** — `using Foo.Bar` matches all files in namespace `Foo.Bar`
+2. **Prefix + type match** — `import com.foo.bar.MyClass` splits into namespace `com.foo.bar` + type `MyClass`, matches files exporting that type
+3. **Static import fallback** — `import static com.foo.Bar.method` tries one level up: namespace `com.foo` + type `Bar`
+
+External dependency imports (NuGet, Maven, etc.) silently produce 0 connections — correct behavior since they're not project files.
+
+**Known gaps** (Go, Rust): Go uses directory-based packages; Rust derives module paths from the file tree and `mod` declarations. Neither is supported yet.
+
+### Adding Namespace Support to New Extractors
+
+When creating an extractor for a namespace-based language, add an optional `extractNamespace(filePath, content)` method that returns the namespace/package string or `null`. This method is NOT in `REQUIRED_METHODS` — it's checked at runtime via `typeof extractor.extractNamespace === 'function'`. Extractors without it work fine; their files just use relative-path resolution only.
+
 ## Term Index
 
 Persistent SQLite database (`terms.db`) with every identifier across all 9 projects. Schema: `files`, `terms`, `occurrences`, `definitions` tables. ~793 files indexed.
@@ -114,7 +132,7 @@ module.exports = {
 };
 ```
 
-**Current extractors:** JavaScript (`.js`, `.mjs`, `.cjs`), TypeScript (`.ts`, `.tsx`), Python (`.py`), Shell (`.sh`, `.bash`), CSS (`.css`)
+**Current extractors:** JavaScript (`.js`, `.mjs`, `.cjs`), TypeScript (`.ts`, `.tsx`), Python (`.py`), Shell (`.sh`, `.bash`), CSS (`.css`), C# (`.cs`), Java (`.java`), Go (`.go`), Rust (`.rs`)
 
 **Adding a new language:** Create `extractors/<language>.js` with the interface above. The registry auto-discovers it on next scan. No other files need editing.
 

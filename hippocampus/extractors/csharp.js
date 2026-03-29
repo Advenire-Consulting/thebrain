@@ -134,6 +134,12 @@ function extractDefinitions(content) {
   return defs;
 }
 
+// Extract the namespace declaration from a C# file
+function extractNamespace(filePath, content) {
+  const match = content.match(/namespace\s+([\w.]+)\s*[;{]/);
+  return match ? match[1] : null;
+}
+
 module.exports = {
   extensions: ['.cs'],
   extractImports,
@@ -141,4 +147,5 @@ module.exports = {
   extractRoutes,
   extractIdentifiers,
   extractDefinitions,
+  extractNamespace,
 };
