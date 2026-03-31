@@ -49,9 +49,11 @@ Long-term memory. Indexes your Claude Code conversation history (the JSONL files
 
 Search results include per-window decision digests so Claude can identify the right session before reading the full conversation. A filter sharpening system lets you flag noise terms that clutter results — terms flagged repeatedly get auto-promoted to the stopword list, keeping search quality high over time.
 
-### Hypothalamus — Safety Hooks
+### Hypothalamus — Safety & Coherence
 
 Your guardrails. Fires on every file edit and bash command before Claude executes them. Classifies paths by sensitivity (databases, secrets, config files get flagged), calculates blast radius (how many files depend on the one being changed), and warns or blocks accordingly. A file with 15 dependents gets a different warning than a leaf file nobody imports. Unparseable bash commands get flagged for manual review. All configurable — whitelist paths, override sensitivity, or disable entirely.
+
+**Project audit** (`node hypothalamus/scripts/audit.js <project|--all>`) runs structural health checks against any project: orphan detection (files nothing imports that aren't entry points) and dependency coherence (npm packages used but not in package.json, or declared but unused). Zero token cost — pure scripting against hippocampus data. The `--map` command shows when each project was last audited and how many files have changed since, so Claude knows when to suggest a re-audit. Detects library projects (like shared utility directories) and skips orphan listing for them.
 
 ### dlPFC — Working Memory
 
@@ -116,6 +118,7 @@ Over a 30-turn session, the difference is roughly **100,000–300,000 cumulative
 | Prefrontal behavioral rules | Re-learning user preferences every session; mistakes that burn tokens before the user can intervene |
 | dlPFC working memory | 8-12 re-orientation file reads at session start; Claude knowing *which* files matter but not *why* |
 | dlPFC git re-engagement | Manual `git log` on each file when returning to cold code; discovering changes by accident mid-edit |
+| Hypothalamus audit | Spawning 3+ exploration agents (~150k tokens) to trace dependency graphs and find dead code manually |
 
 ---
 
