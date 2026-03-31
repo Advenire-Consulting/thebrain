@@ -33,8 +33,9 @@ cerebral-cortex-v2/             ──►     (own data, + reads hippocampus)
 dlpfc/                          ──►     working-memory.db, dlpfc-live.md
   lib/db.js                     reads/writes  working-memory.db
   lib/tracker.js                reads/writes  working-memory.db (via db.js)
+  lib/git-briefing.js           reads     git history (execFileSync), ~/.claude/git_briefing_state_*.json
   lib/generator.js              reads     working-memory.db → writes dlpfc-live.md
-  hooks/read-hook.js            writes    working-memory.db (PreToolUse Read)
+  hooks/read-hook.js            writes    working-memory.db (PreToolUse Read), emits git briefings
   scripts/wrapup-step.js        reads/writes  working-memory.db, reads cc2/recall.db
 
 scripts/                        ──►     signals.db, prefrontal-live.md
@@ -61,7 +62,7 @@ scripts/wrapup-mechanical.js    ──►     (orchestrator — calls everything
 | `signals.db` | 1.3MB | generate-prefrontal.js, session-start hook | lessons.js, seed-signals.js | **No** — accumulated behavioral lessons |
 | `prefrontal-cortex.md` | ~2K | /hello, /continue, pfc-trim.js, session-start hook | /wrapup (Claude writes entries) | No — session summaries written by Claude |
 | `prefrontal-live.md` | ~9K | session-start hook (loaded into context) | generate-prefrontal.js | Yes — generated from signals.db |
-| `working-memory.db` | ~small | dlpfc/generator.js, session-start hook | dlpfc hooks, dlpfc/wrapup-step.js | **Partially** — context_notes are Claude-authored, not rebuildable |
+| `working-memory.db` | ~small | dlpfc/generator.js, session-start hook, git-briefing.js | dlpfc hooks, dlpfc/wrapup-step.js | **Partially** — context_notes are Claude-authored, not rebuildable. file_heat includes last_touched_at for git re-engagement. |
 | `dlpfc-live.md` | ~1K | session-start hook (loaded into context) | dlpfc/generator.js | Yes — generated from working-memory.db |
 | `.pfc-loaded-size` | 4B | /hello, /continue (skip-read check) | session-start hook, wrapup-mechanical.js | Yes — just a byte count |
 

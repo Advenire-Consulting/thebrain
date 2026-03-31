@@ -44,7 +44,18 @@ if (require.main === module) {
   let db;
   try {
     db = new WorkingMemoryDB();
-    bumpFile(db, matchedProject, relativeToProject, 'read', sessionId, dirData);
+    const reengagement = bumpFile(db, matchedProject, relativeToProject, 'read', sessionId, dirData);
+
+    if (reengagement) {
+      const { checkGitChanges, hasBeenBriefed } = require('../lib/git-briefing');
+      if (!hasBeenBriefed(sessionId, matchedProject, relativeToProject)) {
+        const projectRoot = path.join(cwd, dirData.root);
+        const briefing = checkGitChanges(projectRoot, relativeToProject, reengagement.lastTouchedAt);
+        if (briefing) {
+          process.stderr.write('[git-briefing] ' + relativeToProject + ' changed while cold: ' + briefing + '\n');
+        }
+      }
+    }
   } catch (err) {
     process.stderr.write(`[dlpfc-read] ${err.message}\n`);
   } finally {

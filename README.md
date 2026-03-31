@@ -61,6 +61,8 @@ At wrapup, Claude enriches hot files with context notes ("refactoring the auth f
 
 The decay curve is tuned for real work patterns: a file edited today has a score of 1.0. After one idle session it's 0.37, after two it's 0.14, after three it drops below the 0.1 threshold and falls out of working memory. Active files accumulate — a file touched across five sessions builds a score that takes several idle sessions to cool off.
 
+**Git re-engagement briefings** close the gap between sessions. When you return to a file that's been cold, the hook checks git for what changed since you last touched it — and tells you in one line. "server.js changed while cold: 3 commits: abc123 refactor auth ... def456 fix session bug". No extra reads, no persistence, no bloat. Skips silently if the project isn't a git repo.
+
 ### Prefrontal Cortex — Behavioral Learning
 
 The rules engine. Compiles two data sources into decision gates that load into every session:
@@ -113,6 +115,7 @@ Over a 30-turn session, the difference is roughly **100,000–300,000 cumulative
 | Cerebral Cortex search + digest | Reading raw JSONL conversation files (dense, unindexed) |
 | Prefrontal behavioral rules | Re-learning user preferences every session; mistakes that burn tokens before the user can intervene |
 | dlPFC working memory | 8-12 re-orientation file reads at session start; Claude knowing *which* files matter but not *why* |
+| dlPFC git re-engagement | Manual `git log` on each file when returning to cold code; discovering changes by accident mid-edit |
 
 ---
 

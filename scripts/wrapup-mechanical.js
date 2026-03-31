@@ -42,7 +42,22 @@ function main() {
   // 2. Regenerate prefrontal decision gates from signals.db
   runStep('Regenerating prefrontal...', path.join(THEBRAIN_DIR, 'scripts', 'generate-prefrontal.js'));
 
-  // 3. Update PFC size marker
+  // 3. Clean up stale git briefing state files (older than 24 hours)
+  const claudeDir = path.join(HOME, '.claude');
+  const now = Date.now();
+  try {
+    for (const f of fs.readdirSync(claudeDir)) {
+      if (f.startsWith('git_briefing_state_') && f.endsWith('.json')) {
+        const fp = path.join(claudeDir, f);
+        try {
+          const stat = fs.statSync(fp);
+          if (now - stat.mtimeMs > 86400000) fs.unlinkSync(fp);
+        } catch {}
+      }
+    }
+  } catch {}
+
+  // 4. Update PFC size marker
   try {
     if (fs.existsSync(PFC_CORTEX)) {
       const size = fs.statSync(PFC_CORTEX).size;

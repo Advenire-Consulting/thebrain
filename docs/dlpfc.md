@@ -80,12 +80,22 @@ Caps: 15 files per project, 3 clusters per project. Target: ~200-400 tokens per 
 
 No other user interaction. Decay only runs on opted-in wrapups.
 
+## Git Re-engagement Briefing
+
+When a cold file (score < 1.0) is re-engaged by a Read or Edit, the hook checks git for changes since `last_touched_at`. If commits exist, a one-line summary is emitted to stderr — visible in the conversation as a system note.
+
+- **Not persisted** — the briefing is ephemeral, consumed once per session
+- **Deduped per session** — each file briefed at most once via `git_briefing_state_<session>.json`
+- **Git-aware** — skips silently if the project root is not a git repo
+- **No dlpfc-live.md changes** — the generated file is unaffected
+
 ## File Inventory
 
 | File | Purpose |
 |------|---------|
 | `dlpfc/lib/db.js` | Schema, CRUD for file_heat and clusters |
-| `dlpfc/lib/tracker.js` | Score bumping, decay math, cluster detection |
+| `dlpfc/lib/tracker.js` | Score bumping, decay math, cluster detection, re-engagement detection |
+| `dlpfc/lib/git-briefing.js` | Git change check + session dedup for re-engagement briefings |
 | `dlpfc/lib/generator.js` | Produces `dlpfc-live.md` from DB |
 | `dlpfc/hooks/read-hook.js` | PreToolUse hook — bumps score on Read |
 | `dlpfc/scripts/wrapup-step.js` | Wrapup orchestrator — reconciliation, decay, generation |

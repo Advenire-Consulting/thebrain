@@ -150,7 +150,19 @@ if (require.main === module) {
     try {
       const wmDb = new WorkingMemoryDB();
       const relativeToProject = path.relative(projectDir, filePath);
-      bumpFileDlpfc(wmDb, matchedProject, relativeToProject, 'edit', sessionId, dirs.find(d => d.name === matchedProject));
+      const dirEntry = dirs.find(d => d.name === matchedProject);
+      const reengagement = bumpFileDlpfc(wmDb, matchedProject, relativeToProject, 'edit', sessionId, dirEntry);
+
+      if (reengagement) {
+        const { checkGitChanges, hasBeenBriefed } = require('../dlpfc/lib/git-briefing');
+        if (!hasBeenBriefed(sessionId, matchedProject, relativeToProject)) {
+          const briefing = checkGitChanges(projectDir, relativeToProject, reengagement.lastTouchedAt);
+          if (briefing) {
+            process.stderr.write('[git-briefing] ' + relativeToProject + ' changed while cold: ' + briefing + '\n');
+          }
+        }
+      }
+
       wmDb.close();
     } catch (err) {
       process.stderr.write(`[post-edit] dlPFC bump failed: ${err.message}\n`);

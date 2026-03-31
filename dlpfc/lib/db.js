@@ -17,6 +17,7 @@ CREATE TABLE IF NOT EXISTS file_heat (
     last_session TEXT,
     summary TEXT,
     context_note TEXT,
+    last_touched_at DATETIME,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME,
     UNIQUE(project, file_path)
@@ -43,12 +44,13 @@ class WorkingMemoryDB {
   // Insert or bump score for a file touch
   bumpFileHeat(project, filePath, weight, sessionId) {
     this.db.prepare(`
-      INSERT INTO file_heat (project, file_path, score, touch_count, last_session, updated_at)
-      VALUES (?, ?, ?, 1, ?, CURRENT_TIMESTAMP)
+      INSERT INTO file_heat (project, file_path, score, touch_count, last_session, last_touched_at, updated_at)
+      VALUES (?, ?, ?, 1, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
       ON CONFLICT(project, file_path) DO UPDATE SET
         score = score + ?,
         touch_count = touch_count + 1,
         last_session = ?,
+        last_touched_at = CURRENT_TIMESTAMP,
         updated_at = CURRENT_TIMESTAMP
     `).run(project, filePath, weight, sessionId, weight, sessionId);
   }
