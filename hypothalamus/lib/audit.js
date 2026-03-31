@@ -81,8 +81,11 @@ const NODE_BUILTINS = new Set([
   'timers', 'tty', 'v8', 'vm', 'worker_threads', 'zlib',
 ]);
 
+// Check if a module is a Node builtin (handles subpath imports like fs/promises)
 function isBuiltin(mod) {
-  return NODE_BUILTINS.has(mod) || mod.startsWith('node:');
+  if (NODE_BUILTINS.has(mod) || mod.startsWith('node:')) return true;
+  const base = mod.split('/')[0];
+  return NODE_BUILTINS.has(base);
 }
 
 function checkDependencies(dirData, packageJson) {

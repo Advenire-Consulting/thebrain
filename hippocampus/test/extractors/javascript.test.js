@@ -146,6 +146,12 @@ describe('javascript extractor', () => {
       assert.deepStrictEqual(result, []);
     });
 
+    it('excludes builtin subpath imports like fs/promises', () => {
+      const content = "const fsp = require('fs/promises');\nconst pp = require('path/posix');";
+      const result = ext.extractNpmImports('app.js', content);
+      assert.deepStrictEqual(result, []);
+    });
+
     it('handles ES import syntax', () => {
       const content = "import express from 'express';\nimport { Pool } from 'pg';";
       const result = ext.extractNpmImports('app.js', content);

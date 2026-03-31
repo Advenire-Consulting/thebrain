@@ -53,6 +53,16 @@ function extractImports(filePath, content) {
   return [...new Set(imports)];
 }
 
+// Check if a module is a Node builtin (handles subpath imports like fs/promises)
+function isNpmPackage(mod) {
+  if (mod.startsWith('.') || mod.startsWith('/') || mod.startsWith('node:')) return false;
+  if (BUILTIN_MODULES.has(mod)) return false;
+  // Subpath builtins: fs/promises, path/posix, etc.
+  const base = mod.split('/')[0];
+  if (base !== mod && BUILTIN_MODULES.has(base)) return false;
+  return true;
+}
+
 // Extract npm package imports (non-relative, non-builtin requires/imports)
 function extractNpmImports(filePath, content) {
   const pkgs = [];
@@ -60,18 +70,12 @@ function extractNpmImports(filePath, content) {
   const requirePattern = /require\(\s*['"]([^'"]+)['"]\s*\)/g;
   let match;
   while ((match = requirePattern.exec(content)) !== null) {
-    const mod = match[1];
-    if (!BUILTIN_MODULES.has(mod) && !mod.startsWith('node:') && !mod.startsWith('.') && !mod.startsWith('/')) {
-      pkgs.push(mod);
-    }
+    if (isNpmPackage(match[1])) pkgs.push(match[1]);
   }
 
   const importPattern = /import\s+.*?\s+from\s+['"]([^'"]+)['"]/g;
   while ((match = importPattern.exec(content)) !== null) {
-    const mod = match[1];
-    if (!BUILTIN_MODULES.has(mod) && !mod.startsWith('node:') && !mod.startsWith('.') && !mod.startsWith('/')) {
-      pkgs.push(mod);
-    }
+    if (isNpmPackage(match[1])) pkgs.push(match[1]);
   }
 
   return [...new Set(pkgs)];

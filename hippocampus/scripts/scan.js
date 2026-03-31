@@ -212,7 +212,8 @@ function scanProject(projectDir, name, root, outputDir) {
     if (connections >= 2 || isAliased) {
       const entry = {};
       if (data.imports.length > 0) entry.imports = data.imports;
-      if (data.npmImports && data.npmImports.length > 0) entry.npmImports = data.npmImports;
+      // Always write npmImports (even empty) so audit can distinguish "scanned" from "pre-update"
+      if (data.npmImports) entry.npmImports = data.npmImports;
       if (data.exports.length > 0) entry.exports = data.exports;
       if (data.routes.length > 0) entry.routes = data.routes;
 
