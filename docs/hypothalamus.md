@@ -61,6 +61,42 @@ Optional file at `~/.claude/brain/hypothalamus-config.json`:
 | `sensitivity_overrides` | `{}` | Downgrade specific files from sensitive to regular code |
 | `warn_on_unparseable` | `true` | Show AMBER warnings for unparseable commands |
 
+## Project Audit
+
+Structural health checks that consume hippocampus DIR data to detect coherence issues.
+
+### Usage
+
+```
+node hypothalamus/scripts/audit.js <project>    # Audit one project
+node hypothalamus/scripts/audit.js --all         # Audit all projects
+```
+
+### Checks
+
+| Check | What It Finds | Data Source |
+|-------|--------------|-------------|
+| Orphan detection | Files with zero inbound imports that aren't entry points | File collector + DIR import graph |
+| Dependency coherence | npm packages used but not in package.json, or declared but unused | DIR `npmImports` + package.json |
+
+### Entry Point Conventions
+
+Files in these directories are excluded from orphan detection (they're legitimate entry points or outside the import graph):
+
+`hooks/`, `scripts/`, `extractors/`, `test/`, `public/`, `migrations/` — and nested variants (`*/hooks/`, etc.)
+
+### Audit Metadata
+
+Each run stores `~/.claude/brain/hypothalamus/<project>.audit.json` with the commit hash, timestamp, and finding counts. The `--map` command reads this to show audit staleness.
+
+### Key Files
+
+| File | Purpose |
+|------|---------|
+| `hypothalamus/lib/audit.js` | `findOrphans()` and `checkDependencies()` — pure audit functions |
+| `hypothalamus/scripts/audit.js` | CLI orchestration — loads data, runs checks, prints results, stores metadata |
+| `hypothalamus/test/audit.test.js` | Tests for both audit functions |
+
 ## How It Connects to Hippocampus
 
 The hypothalamus doesn't maintain its own file index. It reads DIR files produced by the hippocampus scanner. New projects or files won't be protected until they appear in a DIR file.
