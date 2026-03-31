@@ -71,4 +71,56 @@ function findOrphans(dirData, allFiles, options) {
   return { orphans };
 }
 
-module.exports = { findOrphans };
+// ── Dependency Coherence ────────────────────────────────────────────────────
+
+const NODE_BUILTINS = new Set([
+  'fs', 'path', 'http', 'https', 'url', 'crypto', 'stream', 'events',
+  'util', 'os', 'child_process', 'readline', 'net', 'tls', 'dns',
+  'assert', 'buffer', 'cluster', 'console', 'dgram', 'domain',
+  'module', 'perf_hooks', 'querystring', 'string_decoder',
+  'timers', 'tty', 'v8', 'vm', 'worker_threads', 'zlib',
+]);
+
+function isBuiltin(mod) {
+  return NODE_BUILTINS.has(mod) || mod.startsWith('node:');
+}
+
+function checkDependencies(dirData, packageJson) {
+  const declared = new Set([
+    ...Object.keys(packageJson.dependencies || {}),
+    ...Object.keys(packageJson.devDependencies || {}),
+  ]);
+
+  const usedBy = {};
+  let stale = false;
+
+  for (const [fileName, entry] of Object.entries(dirData.files || {})) {
+    if (!entry.npmImports) {
+      stale = true;
+      continue;
+    }
+    for (const pkg of entry.npmImports) {
+      if (isBuiltin(pkg)) continue;
+      if (!usedBy[pkg]) usedBy[pkg] = [];
+      usedBy[pkg].push(fileName);
+    }
+  }
+
+  for (const pkg of Object.keys(usedBy)) {
+    usedBy[pkg].sort();
+  }
+
+  const undeclared = Object.entries(usedBy)
+    .filter(([pkg]) => !declared.has(pkg))
+    .map(([pkg, files]) => ({ pkg, files }))
+    .sort((a, b) => a.pkg.localeCompare(b.pkg));
+
+  const usedPkgs = new Set(Object.keys(usedBy));
+  const unused = [...declared]
+    .filter(pkg => !usedPkgs.has(pkg))
+    .sort();
+
+  return { undeclared, unused, stale };
+}
+
+module.exports = { findOrphans, checkDependencies };

@@ -2,7 +2,7 @@
 
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
-const { findOrphans } = require('../lib/audit');
+const { findOrphans, checkDependencies } = require('../lib/audit');
 
 describe('findOrphans', () => {
   it('returns empty for empty DIR and file list', () => {
@@ -173,5 +173,118 @@ describe('findOrphans', () => {
     const result = findOrphans(dirData, allFiles, { entryPatterns: ['workers/'] });
     assert.strictEqual(result.orphans.length, 1);
     assert.strictEqual(result.orphans[0].file, 'lib/orphan.js');
+  });
+});
+
+describe('checkDependencies', () => {
+  it('returns clean when all imports are declared', () => {
+    const dirData = {
+      files: {
+        'server.js': { npmImports: ['express'], exports: ['app'] },
+      }
+    };
+    const packageJson = { dependencies: { express: '^4.0.0' } };
+    const result = checkDependencies(dirData, packageJson);
+    assert.deepStrictEqual(result.undeclared, []);
+    assert.deepStrictEqual(result.unused, []);
+    assert.strictEqual(result.stale, false);
+  });
+
+  it('flags undeclared npm import with file location', () => {
+    const dirData = {
+      files: {
+        'server.js': { npmImports: ['express', 'cors'], exports: ['app'] },
+      }
+    };
+    const packageJson = { dependencies: { express: '^4.0.0' } };
+    const result = checkDependencies(dirData, packageJson);
+    assert.strictEqual(result.undeclared.length, 1);
+    assert.strictEqual(result.undeclared[0].pkg, 'cors');
+    assert.deepStrictEqual(result.undeclared[0].files, ['server.js']);
+  });
+
+  it('flags unused package.json entry', () => {
+    const dirData = {
+      files: {
+        'server.js': { npmImports: ['express'], exports: ['app'] },
+      }
+    };
+    const packageJson = { dependencies: { express: '^4.0.0', lodash: '^4.0.0' } };
+    const result = checkDependencies(dirData, packageJson);
+    assert.deepStrictEqual(result.unused, ['lodash']);
+  });
+
+  it('excludes Node builtins from undeclared', () => {
+    const dirData = {
+      files: {
+        // These would normally be filtered at extraction time — testing defense-in-depth
+        'server.js': { npmImports: ['fs', 'path', 'node:test', 'node:assert/strict'], exports: [] },
+      }
+    };
+    const packageJson = { dependencies: {} };
+    const result = checkDependencies(dirData, packageJson);
+    assert.deepStrictEqual(result.undeclared, []);
+  });
+
+  it('handles missing devDependencies gracefully', () => {
+    const dirData = {
+      files: {
+        'server.js': { npmImports: ['express'], exports: ['app'] },
+      }
+    };
+    const packageJson = { dependencies: { express: '^4.0.0' } };
+    const result = checkDependencies(dirData, packageJson);
+    assert.deepStrictEqual(result.undeclared, []);
+  });
+
+  it('checks devDependencies too', () => {
+    const dirData = {
+      files: {
+        'server.js': { npmImports: ['express'], exports: ['app'] },
+      }
+    };
+    const packageJson = {
+      dependencies: {},
+      devDependencies: { express: '^4.0.0' }
+    };
+    const result = checkDependencies(dirData, packageJson);
+    assert.deepStrictEqual(result.undeclared, []);
+  });
+
+  it('returns stale=true when any entry lacks npmImports', () => {
+    const dirData = {
+      files: {
+        'server.js': { exports: ['app'] },
+      }
+    };
+    const packageJson = { dependencies: {} };
+    const result = checkDependencies(dirData, packageJson);
+    assert.strictEqual(result.stale, true);
+  });
+
+  it('handles scoped packages', () => {
+    const dirData = {
+      files: {
+        'server.js': { npmImports: ['@anthropic-ai/sdk'], exports: [] },
+      }
+    };
+    const packageJson = { dependencies: { '@anthropic-ai/sdk': '^1.0.0' } };
+    const result = checkDependencies(dirData, packageJson);
+    assert.deepStrictEqual(result.undeclared, []);
+    assert.deepStrictEqual(result.unused, []);
+  });
+
+  it('aggregates files per undeclared package', () => {
+    const dirData = {
+      files: {
+        'server.js': { npmImports: ['cors'], exports: ['app'] },
+        'routes/api.js': { npmImports: ['cors'], exports: ['router'] },
+      }
+    };
+    const packageJson = { dependencies: {} };
+    const result = checkDependencies(dirData, packageJson);
+    assert.strictEqual(result.undeclared.length, 1);
+    assert.strictEqual(result.undeclared[0].pkg, 'cors');
+    assert.deepStrictEqual(result.undeclared[0].files, ['routes/api.js', 'server.js']);
   });
 });
