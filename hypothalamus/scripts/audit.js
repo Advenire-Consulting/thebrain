@@ -7,6 +7,7 @@ const { loadAllDIR } = require('../../hippocampus/lib/dir-loader');
 const { collectCodeFiles } = require('../../hippocampus/lib/file-collector');
 const { loadExtractors } = require('../../hippocampus/lib/extractor-registry');
 const { findOrphans, checkDependencies } = require('../lib/audit');
+const { loadConfig } = require('../../lib/config');
 
 const EXTRACTORS_DIR = path.join(__dirname, '..', '..', 'hippocampus', 'extractors');
 const registry = loadExtractors(EXTRACTORS_DIR);
@@ -24,16 +25,18 @@ function getCommitHash(projectRoot) {
   }
 }
 
-// Resolve the filesystem root for a project from its DIR root field
-// Assumes script is at thebrain-package/hypothalamus/scripts/audit.js
-// and workspace is 3 levels up (thebrain-package -> websites)
-function resolveProjectRoot(dirRoot) {
-  const workspace = path.resolve(__dirname, '..', '..', '..');
-  return path.join(workspace, dirRoot);
+// Resolve the filesystem root for a project using configured workspace paths
+// DIR root is relative to a workspace (e.g., 'sonder-runtime/')
+function resolveProjectRoot(dirRoot, workspaces) {
+  for (const ws of workspaces) {
+    const candidate = path.join(path.resolve(ws.path), dirRoot);
+    if (fs.existsSync(candidate)) return candidate;
+  }
+  return null;
 }
 
-function auditProject(dir) {
-  const projectRoot = resolveProjectRoot(dir.root);
+function auditProject(dir, workspaces) {
+  const projectRoot = resolveProjectRoot(dir.root, workspaces);
   if (!fs.existsSync(projectRoot)) {
     console.log(`Skipping ${dir.name}: root not found at ${projectRoot}`);
     return null;
@@ -126,15 +129,21 @@ function auditProject(dir) {
 // CLI entry
 const args = process.argv.slice(2);
 const dirs = loadAllDIR();
+const config = loadConfig();
 
 if (dirs.length === 0) {
   console.error('No DIR files found. Run: node hippocampus/scripts/scan.js');
   process.exit(1);
 }
 
+if (config.workspaces.length === 0) {
+  console.error('No workspaces configured. Run setup or edit ~/.claude/brain/config.json');
+  process.exit(1);
+}
+
 if (args[0] === '--all') {
   for (const dir of dirs) {
-    auditProject(dir);
+    auditProject(dir, config.workspaces);
     console.log('');
   }
 } else {
@@ -151,5 +160,5 @@ if (args[0] === '--all') {
     process.exit(1);
   }
 
-  auditProject(matched);
+  auditProject(matched, config.workspaces);
 }

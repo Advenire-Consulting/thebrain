@@ -162,13 +162,18 @@ switch (command) {
         // Compute delta — files changed since last audit
         if (auditMeta.commit) {
           try {
-            const delta = execFileSync('git', [
-              'diff', '--name-only', auditMeta.commit, 'HEAD', '--', dir.root
-            ], {
-              encoding: 'utf-8',
-              cwd: path.resolve(__dirname, '..', '..', '..')
-            }).trim();
-            audit.delta = delta ? delta.split('\n').length : 0;
+            const { loadConfig } = require('../../lib/config');
+            const cfg = loadConfig();
+            for (const ws of cfg.workspaces || []) {
+              const wsPath = path.resolve(ws.path);
+              if (fs.existsSync(path.join(wsPath, dir.root))) {
+                const delta = execFileSync('git', [
+                  'diff', '--name-only', auditMeta.commit, 'HEAD', '--', dir.root
+                ], { encoding: 'utf-8', cwd: wsPath }).trim();
+                audit.delta = delta ? delta.split('\n').length : 0;
+                break;
+              }
+            }
           } catch {
             // git not available or commit not found
           }
