@@ -1,21 +1,39 @@
 'use strict';
 
 const path = require('path');
+const fs = require('fs');
 
-const DEFAULT_ENTRY_PATTERNS = [
-  'hooks/', 'scripts/', 'extractors/', 'test/', 'tests/', 'public/', 'migrations/',
+// ── Entry Point Detection ───────────────────────────────────────────────────
+
+// Directory patterns — files in these dirs are entry points by convention
+const DEFAULT_DIR_PATTERNS = [
+  'hooks/', 'scripts/', 'extractors/', 'test/', 'tests/',
+  'public/', 'migrations/', '_archived/',
 ];
 
-// Check if a file path matches any entry point pattern
-// Patterns like 'hooks/' match both top-level and nested (e.g., 'dlpfc/hooks/')
-function isEntryPoint(filePath, patterns) {
-  for (const pattern of patterns) {
+// Filename patterns — these are entry points regardless of directory
+const DEFAULT_FILE_PATTERNS = [
+  'routes.js', 'public-routes.js', 'server.js', 'index.js',
+  'ecosystem.config.js', 'ecosystem.config.cjs',
+];
+
+function isEntryPoint(filePath, dirPatterns, filePatterns) {
+  // Check directory patterns (e.g., 'hooks/' matches both 'hooks/foo.js' and 'dlpfc/hooks/foo.js')
+  for (const pattern of dirPatterns) {
     if (filePath.includes('/' + pattern) || filePath.startsWith(pattern)) {
       return true;
     }
   }
+  // Check filename patterns
+  const basename = path.posix.basename(filePath);
+  for (const pattern of filePatterns) {
+    if (basename === pattern) return true;
+  }
+  // Check package.json main field if provided via options
   return false;
 }
+
+// ── Import Resolution ───────────────────────────────────────────────────────
 
 // Resolve an import path relative to the importing file, return project-relative path
 // Returns null if the resolved path escapes the project root
@@ -51,14 +69,31 @@ function buildInboundSet(dirData, allFilesSet) {
   return inbound;
 }
 
+// ── Orphan Detection ────────────────────────────────────────────────────────
+
 function findOrphans(dirData, allFiles, options) {
-  const patterns = (options && options.entryPatterns) || DEFAULT_ENTRY_PATTERNS;
+  const dirPatterns = (options && options.entryPatterns) || DEFAULT_DIR_PATTERNS;
+  const filePatterns = (options && options.filePatterns) || DEFAULT_FILE_PATTERNS;
   const allFilesSet = new Set(allFiles);
   const inbound = buildInboundSet(dirData, allFilesSet);
 
+  // Detect library projects — if no file imports any other file in the project,
+  // the entire project is consumed externally (like _shared/).
+  // Only triggers when there are multiple files and zero inbound references.
+  const hasAnyInternalImport = inbound.size > 0;
+  const dirFileCount = Object.keys(dirData.files || {}).length;
+  if (!hasAnyInternalImport && allFiles.length > 1 && dirFileCount > 0) {
+    const anyImports = Object.values(dirData.files || {}).some(
+      e => (e.imports || []).some(imp => imp.startsWith('.') || imp.startsWith('/'))
+    );
+    if (!anyImports) {
+      return { orphans: [], library: true };
+    }
+  }
+
   const orphans = [];
   for (const file of allFiles) {
-    if (isEntryPoint(file, patterns)) continue;
+    if (isEntryPoint(file, dirPatterns, filePatterns)) continue;
     if (inbound.has(file)) continue;
 
     const dirEntry = (dirData.files || {})[file];
@@ -68,7 +103,7 @@ function findOrphans(dirData, allFiles, options) {
     });
   }
 
-  return { orphans };
+  return { orphans, library: false };
 }
 
 // ── Dependency Coherence ────────────────────────────────────────────────────

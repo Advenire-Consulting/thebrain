@@ -160,11 +160,19 @@ describe('findOrphans', () => {
     const dirData = {
       files: {
         'lib/config.js': { exports: ['BRAIN_DIR'] },
+        // another entry WITH imports so it's not detected as a library project
+        'lib/app.js': { imports: ['./config'], exports: ['start'] },
       }
     };
-    const allFiles = ['lib/config.js', 'lib/orphan.js'];
+    // config.js is imported by app.js (not orphaned)
+    // app.js and orphan.js have no importers — both orphaned
+    // Key assertion: no crash on missing imports key
+    const allFiles = ['lib/config.js', 'lib/app.js', 'lib/orphan.js'];
     const result = findOrphans(dirData, allFiles);
-    assert.strictEqual(result.orphans.length, 2);
+    assert.strictEqual(result.library, false);
+    const orphanFiles = result.orphans.map(o => o.file);
+    assert.ok(!orphanFiles.includes('lib/config.js'), 'config.js imported by app.js');
+    assert.ok(orphanFiles.includes('lib/orphan.js'), 'orphan.js has no importers');
   });
 
   it('accepts custom entryPatterns', () => {
@@ -173,6 +181,66 @@ describe('findOrphans', () => {
     const result = findOrphans(dirData, allFiles, { entryPatterns: ['workers/'] });
     assert.strictEqual(result.orphans.length, 1);
     assert.strictEqual(result.orphans[0].file, 'lib/orphan.js');
+  });
+
+  it('excludes files in _archived/ directories', () => {
+    const dirData = { files: {} };
+    const allFiles = ['tool-library/_archived/room-calendar/routes.js', 'lib/orphan.js'];
+    const result = findOrphans(dirData, allFiles);
+    assert.strictEqual(result.orphans.length, 1);
+    assert.strictEqual(result.orphans[0].file, 'lib/orphan.js');
+  });
+
+  it('excludes routes.js and public-routes.js by filename', () => {
+    const dirData = { files: {} };
+    const allFiles = ['tools/crm/routes.js', 'tools/booking/public-routes.js', 'lib/orphan.js'];
+    const result = findOrphans(dirData, allFiles);
+    assert.strictEqual(result.orphans.length, 1);
+    assert.strictEqual(result.orphans[0].file, 'lib/orphan.js');
+  });
+
+  it('excludes server.js and index.js by filename', () => {
+    const dirData = { files: {} };
+    const allFiles = ['server/index.js', 'app/server.js', 'lib/orphan.js'];
+    const result = findOrphans(dirData, allFiles);
+    assert.strictEqual(result.orphans.length, 1);
+    assert.strictEqual(result.orphans[0].file, 'lib/orphan.js');
+  });
+
+  it('excludes ecosystem.config files by filename', () => {
+    const dirData = { files: {} };
+    const allFiles = ['ecosystem.config.js', 'ecosystem.config.cjs', 'lib/orphan.js'];
+    const result = findOrphans(dirData, allFiles);
+    assert.strictEqual(result.orphans.length, 1);
+    assert.strictEqual(result.orphans[0].file, 'lib/orphan.js');
+  });
+
+  it('detects library projects with no internal imports', () => {
+    const dirData = {
+      files: {
+        'auth.js': { exports: ['login'] },
+        'utils.js': { exports: ['escapeHtml'] },
+      }
+    };
+    const allFiles = ['auth.js', 'utils.js', 'db.js'];
+    const result = findOrphans(dirData, allFiles);
+    assert.strictEqual(result.library, true);
+    assert.deepStrictEqual(result.orphans, []);
+  });
+
+  it('does not flag as library when internal imports exist', () => {
+    const dirData = {
+      files: {
+        'app.js': { imports: ['./db'], exports: ['app'] },
+        'db.js': { exports: ['query'] },
+      }
+    };
+    // app.js imports db.js — internal imports exist, not a library
+    // app.js has no importers, lib/orphan.js has no importers
+    const allFiles = ['app.js', 'db.js', 'lib/orphan.js'];
+    const result = findOrphans(dirData, allFiles);
+    assert.strictEqual(result.library, false);
+    assert.strictEqual(result.orphans.length, 2);
   });
 });
 

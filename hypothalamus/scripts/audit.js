@@ -66,7 +66,9 @@ function auditProject(dir) {
   // Print results
   const findings = { orphans: 0, undeclared: 0, unused: 0 };
 
-  if (orphanResult.orphans.length > 0) {
+  if (orphanResult.library) {
+    console.log('Library project — all files consumed externally, orphan check skipped.');
+  } else if (orphanResult.orphans.length > 0) {
     console.log('');
     console.log('Orphaned files (no inbound imports):');
     for (const o of orphanResult.orphans) {
