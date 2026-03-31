@@ -121,6 +121,56 @@ describe('javascript extractor', () => {
     });
   });
 
+  describe('extractNpmImports', () => {
+    it('extracts npm package requires', () => {
+      const content = "const express = require('express');\nconst db = require('better-sqlite3');";
+      const result = ext.extractNpmImports('app.js', content);
+      assert.deepStrictEqual(result, ['express', 'better-sqlite3']);
+    });
+
+    it('excludes relative imports', () => {
+      const content = "const db = require('./db');\nconst utils = require('../lib/utils');";
+      const result = ext.extractNpmImports('app.js', content);
+      assert.deepStrictEqual(result, []);
+    });
+
+    it('excludes Node builtins', () => {
+      const content = "const fs = require('fs');\nconst path = require('path');\nconst test = require('node:test');";
+      const result = ext.extractNpmImports('app.js', content);
+      assert.deepStrictEqual(result, []);
+    });
+
+    it('excludes all node: prefixed modules', () => {
+      const content = "const tp = require('node:timers/promises');\nconst rl = require('node:readline/promises');";
+      const result = ext.extractNpmImports('app.js', content);
+      assert.deepStrictEqual(result, []);
+    });
+
+    it('excludes builtin subpath imports like fs/promises', () => {
+      const content = "const fsp = require('fs/promises');\nconst pp = require('path/posix');";
+      const result = ext.extractNpmImports('app.js', content);
+      assert.deepStrictEqual(result, []);
+    });
+
+    it('handles ES import syntax', () => {
+      const content = "import express from 'express';\nimport { Pool } from 'pg';";
+      const result = ext.extractNpmImports('app.js', content);
+      assert.deepStrictEqual(result, ['express', 'pg']);
+    });
+
+    it('handles scoped packages', () => {
+      const content = "const sdk = require('@anthropic-ai/sdk');";
+      const result = ext.extractNpmImports('app.js', content);
+      assert.deepStrictEqual(result, ['@anthropic-ai/sdk']);
+    });
+
+    it('deduplicates', () => {
+      const content = "const a = require('express');\nconst b = require('express');";
+      const result = ext.extractNpmImports('app.js', content);
+      assert.deepStrictEqual(result, ['express']);
+    });
+  });
+
   describe('extractDefinitions', () => {
     it('extracts function declarations', () => {
       const content = "function createApp() {\n  return {};\n}";

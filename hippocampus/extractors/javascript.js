@@ -53,6 +53,34 @@ function extractImports(filePath, content) {
   return [...new Set(imports)];
 }
 
+// Check if a module is a Node builtin (handles subpath imports like fs/promises)
+function isNpmPackage(mod) {
+  if (mod.startsWith('.') || mod.startsWith('/') || mod.startsWith('node:')) return false;
+  if (BUILTIN_MODULES.has(mod)) return false;
+  // Subpath builtins: fs/promises, path/posix, etc.
+  const base = mod.split('/')[0];
+  if (base !== mod && BUILTIN_MODULES.has(base)) return false;
+  return true;
+}
+
+// Extract npm package imports (non-relative, non-builtin requires/imports)
+function extractNpmImports(filePath, content) {
+  const pkgs = [];
+
+  const requirePattern = /require\(\s*['"]([^'"]+)['"]\s*\)/g;
+  let match;
+  while ((match = requirePattern.exec(content)) !== null) {
+    if (isNpmPackage(match[1])) pkgs.push(match[1]);
+  }
+
+  const importPattern = /import\s+.*?\s+from\s+['"]([^'"]+)['"]/g;
+  while ((match = importPattern.exec(content)) !== null) {
+    if (isNpmPackage(match[1])) pkgs.push(match[1]);
+  }
+
+  return [...new Set(pkgs)];
+}
+
 function extractExports(filePath, content) {
   const exports_ = [];
 
@@ -180,6 +208,7 @@ function extractDefinitions(content) {
 module.exports = {
   extensions: ['.js', '.mjs', '.cjs'],
   extractImports,
+  extractNpmImports,
   extractExports,
   extractRoutes,
   extractIdentifiers,
