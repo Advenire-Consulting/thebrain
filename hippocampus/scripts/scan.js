@@ -106,6 +106,7 @@ function scanProject(projectDir, name, root, outputDir) {
 
     fileData[f.relative] = {
       imports: extractor ? extractor.extractImports(f.relative, content) : [],
+      npmImports: extractor && extractor.extractNpmImports ? extractor.extractNpmImports(f.relative, content) : [],
       exports: extractor ? extractor.extractExports(f.relative, content) : [],
       routes: extractor ? extractor.extractRoutes(f.relative, content) : [],
       content,
@@ -211,6 +212,7 @@ function scanProject(projectDir, name, root, outputDir) {
     if (connections >= 2 || isAliased) {
       const entry = {};
       if (data.imports.length > 0) entry.imports = data.imports;
+      if (data.npmImports && data.npmImports.length > 0) entry.npmImports = data.npmImports;
       if (data.exports.length > 0) entry.exports = data.exports;
       if (data.routes.length > 0) entry.routes = data.routes;
 

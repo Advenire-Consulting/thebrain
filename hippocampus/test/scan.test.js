@@ -159,6 +159,45 @@ describe('sensitivity annotation', () => {
   });
 });
 
+describe('npmImports in DIR entries', () => {
+  const NPM_DIR = path.join(__dirname, '.test-npm-imports');
+
+  before(() => {
+    fs.mkdirSync(NPM_DIR, { recursive: true });
+
+    // pkg-user.js requires an npm package and a local file
+    fs.writeFileSync(path.join(NPM_DIR, 'pkg-user.js'),
+      `const express = require('express');\nconst db = require('./db');\nmodule.exports = { app: express() };\n`
+    );
+    // db.js imports pkg-user (gives both files 2+ connections)
+    fs.writeFileSync(path.join(NPM_DIR, 'db.js'),
+      `const helper = require('./pkg-user');\nmodule.exports = { db: true };\n`
+    );
+  });
+
+  after(() => {
+    fs.rmSync(NPM_DIR, { recursive: true, force: true });
+  });
+
+  it('captures npmImports in DIR entry', () => {
+    const { scanProject } = require('../scripts/scan');
+    const dir = scanProject(NPM_DIR, 'npm-test', 'npm-test/', TEST_OUTPUT);
+
+    const entry = dir.files['pkg-user.js'];
+    assert.ok(entry, 'pkg-user.js should be in DIR (2 connections)');
+    assert.ok(Array.isArray(entry.npmImports), 'should have npmImports array');
+    assert.ok(entry.npmImports.includes('express'), 'should include express');
+  });
+
+  it('does not include local imports in npmImports', () => {
+    const { scanProject } = require('../scripts/scan');
+    const dir = scanProject(NPM_DIR, 'npm-test', 'npm-test/', TEST_OUTPUT);
+
+    const entry = dir.files['pkg-user.js'];
+    assert.ok(!entry.npmImports.includes('./db'), 'should not include local imports');
+  });
+});
+
 describe('buildReferences', () => {
   it('identifies outbound references to _shared/', () => {
     const { scanProject } = require('../scripts/scan');
