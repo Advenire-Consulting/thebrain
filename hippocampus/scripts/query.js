@@ -1,6 +1,8 @@
 'use strict';
 
 const path = require('path');
+const fs = require('fs');
+const { execFileSync } = require('child_process');
 const { loadAllDIR, resolveAlias, getBlastRadius } = require('../lib/dir-loader');
 const { TermDB } = require('../lib/term-db');
 
@@ -137,6 +139,46 @@ switch (command) {
         if (entry.description) fileInfo.description = entry.description;
         output.files[fileName] = fileInfo;
       }
+      // Audit status from hypothalamus
+      const hypothalamusDir = path.join(
+        require('os').homedir(), '.claude', 'brain', 'hypothalamus'
+      );
+      const auditPath = path.join(hypothalamusDir, dir.name + '.audit.json');
+      try {
+        const auditMeta = JSON.parse(fs.readFileSync(auditPath, 'utf-8'));
+        const auditDate = auditMeta.timestamp.split('T')[0];
+        const f = auditMeta.findings;
+        const total = (f.orphans || 0) + (f.undeclared || 0) + (f.unused || 0);
+
+        const audit = { date: auditDate, status: 'clean' };
+        if (total > 0) {
+          const parts = [];
+          if (f.orphans) parts.push(`${f.orphans} orphan${f.orphans > 1 ? 's' : ''}`);
+          if (f.undeclared) parts.push(`${f.undeclared} undeclared`);
+          if (f.unused) parts.push(`${f.unused} unused`);
+          audit.status = parts.join(', ');
+        }
+
+        // Compute delta — files changed since last audit
+        if (auditMeta.commit) {
+          try {
+            const delta = execFileSync('git', [
+              'diff', '--name-only', auditMeta.commit, 'HEAD', '--', dir.root
+            ], {
+              encoding: 'utf-8',
+              cwd: path.resolve(__dirname, '..', '..', '..')
+            }).trim();
+            audit.delta = delta ? delta.split('\n').length : 0;
+          } catch {
+            // git not available or commit not found
+          }
+        }
+
+        output.audit = audit;
+      } catch {
+        output.audit = 'never';
+      }
+
       printJson(output);
     }
     break;
