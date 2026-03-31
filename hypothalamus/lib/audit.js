@@ -3,7 +3,7 @@
 const path = require('path');
 
 const DEFAULT_ENTRY_PATTERNS = [
-  'hooks/', 'scripts/', 'extractors/', 'test/', 'public/', 'migrations/',
+  'hooks/', 'scripts/', 'extractors/', 'test/', 'tests/', 'public/', 'migrations/',
 ];
 
 // Check if a file path matches any entry point pattern
