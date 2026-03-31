@@ -81,8 +81,15 @@ function findOrphans(dirData, allFiles, options) {
   // the entire project is consumed externally (like _shared/).
   // Only triggers when there are multiple files and zero inbound references.
   const hasAnyInternalImport = inbound.size > 0;
+  // Detect library projects — if no file imports any other file in the project,
+  // the entire project is consumed externally (like _shared/).
   const dirFileCount = Object.keys(dirData.files || {}).length;
-  if (!hasAnyInternalImport && allFiles.length > 1 && dirFileCount > 0) {
+  if (!hasAnyInternalImport && allFiles.length > 1) {
+    // Empty DIR = no file had 2+ connections = nothing connects to anything
+    if (dirFileCount === 0) {
+      return { orphans: [], library: true };
+    }
+    // DIR has entries but none with local imports
     const anyImports = Object.values(dirData.files || {}).some(
       e => (e.imports || []).some(imp => imp.startsWith('.') || imp.startsWith('/'))
     );
