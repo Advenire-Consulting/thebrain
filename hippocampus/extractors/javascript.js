@@ -53,6 +53,30 @@ function extractImports(filePath, content) {
   return [...new Set(imports)];
 }
 
+// Extract npm package imports (non-relative, non-builtin requires/imports)
+function extractNpmImports(filePath, content) {
+  const pkgs = [];
+
+  const requirePattern = /require\(\s*['"]([^'"]+)['"]\s*\)/g;
+  let match;
+  while ((match = requirePattern.exec(content)) !== null) {
+    const mod = match[1];
+    if (!BUILTIN_MODULES.has(mod) && !mod.startsWith('node:') && !mod.startsWith('.') && !mod.startsWith('/')) {
+      pkgs.push(mod);
+    }
+  }
+
+  const importPattern = /import\s+.*?\s+from\s+['"]([^'"]+)['"]/g;
+  while ((match = importPattern.exec(content)) !== null) {
+    const mod = match[1];
+    if (!BUILTIN_MODULES.has(mod) && !mod.startsWith('node:') && !mod.startsWith('.') && !mod.startsWith('/')) {
+      pkgs.push(mod);
+    }
+  }
+
+  return [...new Set(pkgs)];
+}
+
 function extractExports(filePath, content) {
   const exports_ = [];
 
@@ -180,6 +204,7 @@ function extractDefinitions(content) {
 module.exports = {
   extensions: ['.js', '.mjs', '.cjs'],
   extractImports,
+  extractNpmImports,
   extractExports,
   extractRoutes,
   extractIdentifiers,
