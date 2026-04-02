@@ -74,6 +74,8 @@ Configure workspaces in `~/.claude/brain/config.json`.
 
 ## Data Storage
 
+The brain tool reference is installed as a user-level rules file at `~/.claude/rules/brain-tools.md`. This is auto-maintained by the session-start hook — when `docs/tool-index.md` changes in the plugin, the hook detects the change and rewrites the resolved rules file on the next session start.
+
 All mutable state lives in `~/.claude/brain/`:
 - `config.json` — workspace roots and conversation directories
 - `signals.db` — behavioral lessons and relational forces

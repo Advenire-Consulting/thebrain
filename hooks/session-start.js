@@ -13,6 +13,8 @@ const SIGNALS_DB = path.join(BRAIN_DIR, 'signals.db');
 const PFC_FILE = path.join(BRAIN_DIR, 'prefrontal-live.md');
 const PFC_CORTEX = path.join(BRAIN_DIR, 'prefrontal-cortex.md');
 const PFC_SIZE_FILE = path.join(BRAIN_DIR, '.pfc-loaded-size');
+const TOOL_INDEX_SRC = path.join(PLUGIN_ROOT, 'docs', 'tool-index.md');
+const TOOL_INDEX_DEST = path.join(HOME, '.claude', 'rules', 'brain-tools.md');
 
 function escapeForJson(s) {
   return s
@@ -32,6 +34,30 @@ function outputJson(content) {
       additionalContext: content,
     },
   }));
+}
+
+// Write resolved tool-index to ~/.claude/rules/ if source is newer or dest missing
+function syncToolIndex() {
+  if (!fs.existsSync(TOOL_INDEX_SRC)) return;
+  try {
+    const destDir = path.dirname(TOOL_INDEX_DEST);
+    if (!fs.existsSync(destDir)) fs.mkdirSync(destDir, { recursive: true });
+
+    let shouldWrite = !fs.existsSync(TOOL_INDEX_DEST);
+    if (!shouldWrite) {
+      const srcMtime = fs.statSync(TOOL_INDEX_SRC).mtimeMs;
+      const destMtime = fs.statSync(TOOL_INDEX_DEST).mtimeMs;
+      shouldWrite = srcMtime > destMtime;
+    }
+    if (!shouldWrite) return;
+
+    // Read source and resolve $PLUGIN_ROOT placeholders
+    let content = fs.readFileSync(TOOL_INDEX_SRC, 'utf-8');
+    content = content.replace(/\$PLUGIN_ROOT/g, PLUGIN_ROOT);
+    fs.writeFileSync(TOOL_INDEX_DEST, content);
+  } catch (err) {
+    process.stderr.write(`TheBrain: tool-index sync to rules failed — ${err.message}\n`);
+  }
 }
 
 function main() {
@@ -74,6 +100,9 @@ function main() {
       process.stderr.write(`TheBrain: migration failed — ${err.message}\n`);
     }
   }
+
+  // Sync tool-index to ~/.claude/rules/ if source changed
+  syncToolIndex();
 
   // Regenerate prefrontal if stale or missing
   if (fs.existsSync(SIGNALS_DB)) {
@@ -136,7 +165,7 @@ function main() {
     parts.push('</EXTREMELY_IMPORTANT>');
     parts.push('');
   } else {
-    // Normal mode — load prefrontal + tool index
+    // Normal mode — load prefrontal (tool index loaded via ~/.claude/rules/)
 
     // New user reminder — show commands for first 5 sessions
     const sessionCountFile = path.join(BRAIN_DIR, '.session-count');
@@ -163,29 +192,19 @@ function main() {
       parts.push('*No prefrontal-live.md found. Run setup to populate.*');
     }
 
-    // Tool index with $PLUGIN_ROOT substitution
-    const toolIndexPath = path.join(PLUGIN_ROOT, 'docs', 'tool-index.md');
-    if (fs.existsSync(toolIndexPath)) {
-      let toolContent = fs.readFileSync(toolIndexPath, 'utf-8');
-      toolContent = toolContent.replace(/\$PLUGIN_ROOT/g, PLUGIN_ROOT);
-      parts.push('');
-      parts.push('<EXTREMELY_IMPORTANT>');
-      parts.push(toolContent.trimEnd());
-      parts.push('</EXTREMELY_IMPORTANT>');
-    }
+    // Tool index is loaded via ~/.claude/rules/brain-tools.md (synced by syncToolIndex above)
 
   }
 
   parts.push('');
   parts.push('<!-- /brain-loaded -->');
 
-  // Size guard — if output exceeds 15KB, the tool-index (with resolved paths)
-  // risks being truncated from context. Regenerate prefrontal with summaries
-  // and warn. This is a self-healing mechanism.
-  const MAX_OUTPUT_BYTES = 15000;
+  // Size guard — if output exceeds limit, regenerate prefrontal with summaries
+  // to keep hook output compact. Self-healing mechanism.
+  const MAX_OUTPUT_BYTES = 8000;
   const output = parts.join('\n');
   if (Buffer.byteLength(output, 'utf-8') > MAX_OUTPUT_BYTES) {
-    process.stderr.write(`TheBrain: session-start output is ${Buffer.byteLength(output, 'utf-8')} bytes (>${MAX_OUTPUT_BYTES}). Auto-summarizing prefrontal to prevent tool-index truncation.\n`);
+    process.stderr.write(`TheBrain: session-start output is ${Buffer.byteLength(output, 'utf-8')} bytes (>${MAX_OUTPUT_BYTES}). Auto-summarizing prefrontal.\n`);
     // Check if any lessons/forces are missing summaries — that's the likely cause
     try {
       const Database = require(path.join(PLUGIN_ROOT, 'node_modules', 'better-sqlite3'));
@@ -200,14 +219,11 @@ function main() {
     // Regenerate with current data (summaries should keep it small)
     try {
       execFileSync('node', [path.join(PLUGIN_ROOT, 'scripts', 'generate-prefrontal.js')], { stdio: 'ignore' });
-      // Rebuild output with fresh prefrontal
+      // Rebuild output with fresh prefrontal — PFC is followed by the closing marker
       const pfcIdx = parts.indexOf('# Prefrontal — Decision Gates');
-      if (pfcIdx !== -1 && fs.existsSync(PFC_FILE)) {
-        // Find the end of prefrontal content (next EXTREMELY_IMPORTANT tag)
-        const eiIdx = parts.indexOf('<EXTREMELY_IMPORTANT>', pfcIdx);
-        if (eiIdx !== -1) {
-          parts.splice(pfcIdx + 1, eiIdx - pfcIdx - 1, '', fs.readFileSync(PFC_FILE, 'utf-8').trimEnd());
-        }
+      const endIdx = parts.indexOf('<!-- /brain-loaded -->');
+      if (pfcIdx !== -1 && endIdx !== -1 && fs.existsSync(PFC_FILE)) {
+        parts.splice(pfcIdx + 1, endIdx - pfcIdx - 1, '', fs.readFileSync(PFC_FILE, 'utf-8').trimEnd(), '');
       }
     } catch (_) { /* already logged above if regen fails */ }
   }

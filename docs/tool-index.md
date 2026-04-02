@@ -1,5 +1,9 @@
 # Brain Tools
 
+<!-- Source of truth: this file is resolved ($PLUGIN_ROOT → actual paths) and written to
+     ~/.claude/rules/brain-tools.md by the session-start hook when this file changes.
+     Edit here, not in the rules copy. -->
+
 Spatial awareness and long-term memory for code navigation and project history. All commands run from your workspace directory.
 
 **Default routing:** When you need to understand code — what files exist, what they do, what depends on what, what the schema looks like — route through these tools before falling back to Grep/Glob/Read. They return structured, token-efficient results built from indexed data. Standard tools are the fallback for queries brain tools don't cover (see "When Standard Tools Are Shorter" below).

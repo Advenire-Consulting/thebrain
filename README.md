@@ -28,6 +28,7 @@ Install the plugin, run guided setup (2 minutes), start working. The brain loads
 - **Multi-workspace** — scans all your project directories, indexes conversations from all of them
 - **Cross-platform** — works on Linux, macOS, and Windows
 - **Single dependency** — just Node.js 18+, nothing else
+- **Smart context loading** — behavioral rules load via session-start hook; tool reference installs as a user-level rules file (`~/.claude/rules/brain-tools.md`) that auto-updates when the plugin changes
 
 ---
 

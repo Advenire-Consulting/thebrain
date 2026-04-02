@@ -252,11 +252,23 @@ node $PLUGIN_ROOT/scripts/generate-prefrontal.js
 
 Builds `~/.claude/brain/prefrontal-live.md` from the seed signals.
 
-## Step 11: Verify Hooks
+## Step 11: Install Tool Index as User Rule
+
+The brain's tool reference (hippocampus, CC2, wrapup commands) is loaded as a user-level rules file so it stays in high-priority context. The session-start hook keeps this file up to date on future sessions, but we need to create it now for the first restart.
+
+```bash
+mkdir -p ~/.claude/rules
+```
+
+Then read `$PLUGIN_ROOT/docs/tool-index.md`, replace all `$PLUGIN_ROOT` references with the actual plugin root path, and write the result to `~/.claude/rules/brain-tools.md`.
+
+This file is auto-maintained — when `docs/tool-index.md` changes in the plugin, the session-start hook detects the change and rewrites the rules file with resolved paths.
+
+## Step 12: Verify Hooks
 
 The plugin's hooks should already be active. Check for `<!-- brain-loaded -->` in the system reminders. If it's present, hooks are working. If not, the user may need to restart Claude with the correct `--plugin-dir` flag.
 
-## Step 12: Summary
+## Step 13: Summary
 
 Show the user what was set up:
 
