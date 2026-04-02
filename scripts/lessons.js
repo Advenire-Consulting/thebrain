@@ -98,7 +98,7 @@ function ensureSchema(db) {
   `);
 }
 
-function insertLesson(db, brainFile, domain, title, entryText, severity, weightOverride) {
+function insertLesson(db, brainFile, domain, title, entryText, severity, weightOverride, summary) {
   severity = severity || 'moderate';
   const now = new Date().toISOString();
 
@@ -117,8 +117,8 @@ function insertLesson(db, brainFile, domain, title, entryText, severity, weightO
       newCount = Math.min(existing.confirmation_count + DOPAMINE_INCREMENT, WEIGHT_CAP);
     }
     db.prepare(`
-      UPDATE lessons SET confirmation_count = ?, last_confirmed = ? WHERE id = ?
-    `).run(newCount, now, lessonId);
+      UPDATE lessons SET confirmation_count = ?, last_confirmed = ?${summary ? ', summary = ?' : ''} WHERE id = ?
+    `).run(...(summary ? [newCount, now, summary, lessonId] : [newCount, now, lessonId]));
     action = 'reinforced';
   } else {
     if (weightOverride != null) {
@@ -127,10 +127,10 @@ function insertLesson(db, brainFile, domain, title, entryText, severity, weightO
       newCount = Math.min(DOPAMINE_INCREMENT, WEIGHT_CAP);
     }
     const result = db.prepare(`
-      INSERT INTO lessons (brain_file, domain, title, entry_text,
+      INSERT INTO lessons (brain_file, domain, title, entry_text, summary,
                            confirmation_count, first_confirmed, last_confirmed)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `).run(brainFile, domain, title, entryText, newCount, now, now);
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(brainFile, domain, title, entryText, summary || null, newCount, now, now);
     lessonId = result.lastInsertRowid;
     action = 'created';
   }

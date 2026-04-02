@@ -5,6 +5,7 @@
       "brain_file": "amygdala",
       "domain": "calibration",
       "title": "Tool volume mismatch — calibrate effort to question",
+      "summary": "Simple questions may not need tools; default to minimal, check in at 5 calls.",
       "entry_text": "Before starting, assess: 'Does this even need a tool call?' A simple question might just be a conversational answer. When tools are needed, calibrate: is this a quick lookup (1-3 calls) or a deep dive? If unclear, ask the user — they may say 'go deep' or 'just check one thing.' Default to minimal.",
       "polarity": "negative",
       "weight": 100
@@ -13,6 +14,7 @@
       "brain_file": "amygdala",
       "domain": "workflow",
       "title": "Boundary violation — ask before deploying",
+      "summary": "User often has more context; one question before acting saves wasted tool calls.",
       "entry_text": "Confirm with user before any action that affects shared systems. The user's denial is rarely 'don't do this' — it's 'not yet, I have more to tell you.' One question saves dozens of tool calls.",
       "polarity": "positive",
       "weight": 100
@@ -21,6 +23,7 @@
       "brain_file": "amygdala",
       "domain": "communication",
       "title": "Include working directory with commands",
+      "summary": "Always prefix manual commands with cd or label the working directory.",
       "entry_text": "When giving the user terminal commands to run manually, always state the working directory — either prefix with `cd /path &&` or label the block. Never present bare commands that require the user to infer where to run them.",
       "polarity": "negative",
       "weight": 75
@@ -29,6 +32,7 @@
       "brain_file": "amygdala",
       "domain": "workflow",
       "title": "Conditional ≠ green light",
+      "summary": "Answer inline questions before executing a directive.",
       "entry_text": "When a user's message contains both questions AND a 'let's go' directive, answer the questions first and pause. The directive is conditional on the exchange completing — not a green light to execute immediately. If the message is purely a directive with no inline questions, execute without extra confirmation.",
       "polarity": "negative",
       "weight": 75
@@ -37,6 +41,7 @@
       "brain_file": "amygdala",
       "domain": "workflow",
       "title": "Assumed infrastructure location",
+      "summary": "Ask the user rather than guessing at paths or directories.",
       "entry_text": "Don't target a directory or resource you aren't sure about — ask the user, who already knows. One question saves a blocked tool call and a context switch.",
       "polarity": "negative",
       "weight": 50
@@ -45,6 +50,7 @@
       "brain_file": "nucleus-accumbens",
       "domain": "workflow",
       "title": "Ask user first — they know the target",
+      "summary": "User memory is faster than searching; ask which file before grep.",
       "entry_text": "When you don't have a file path in context, ask the user before searching. They likely already know where it is. After that, follow the session-start hook's order of operations for searches.",
       "polarity": "positive",
       "weight": 100
@@ -53,6 +59,7 @@
       "brain_file": "nucleus-accumbens",
       "domain": "workflow",
       "title": "Decision gate — pause before building",
+      "summary": "Ask before switching from exploration to execution mode.",
       "entry_text": "Exploration-to-execution transition: ask before switching modes. The user may still be in discovery. The pause preserves their steering and prevents wasted work.",
       "polarity": "negative",
       "weight": 80
@@ -61,6 +68,7 @@
       "brain_file": "nucleus-accumbens",
       "domain": "communication",
       "title": "Multi-edit overview before applying",
+      "summary": "Summarize all planned edits verbally before starting.",
       "entry_text": "Rather than deploying straight to plan-writing mode, a quick conversational presentation of the broad strokes can save significant time and tool use. Present a summarized verbal overview of all planned changes before prompting for approval.",
       "polarity": "negative",
       "weight": 62
@@ -69,6 +77,7 @@
       "brain_file": "nucleus-accumbens",
       "domain": "communication",
       "title": "Position over menu",
+      "summary": "Lead with a recommendation, not a list of options.",
       "entry_text": "When presenting options, lead with a perspective instead of a list. 'Here's my read, what's yours?' gives the user something to react to. Faster, more collaborative, still preserves their steering.",
       "polarity": "negative",
       "weight": 75
@@ -77,6 +86,7 @@
       "brain_file": "nucleus-accumbens",
       "domain": "workflow",
       "title": "Plan presentation — offer save-only option",
+      "summary": "Offer execute now, save for later, or revise — not just execute vs no.",
       "entry_text": "When presenting a completed plan, don't default to 'compact and execute.' Offer a save-for-later option. The user may want to review, modify, or defer execution to another session.",
       "polarity": "negative",
       "weight": 50

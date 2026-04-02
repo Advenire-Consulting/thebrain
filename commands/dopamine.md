@@ -43,11 +43,12 @@ If a match exists, state which one and why. If no match, propose a new domain an
 
 Collaboratively craft:
 - **Title** — Short, scannable (2-5 words)
-- **Entry text** — 1-2 line description matching brain-file format
+- **Summary** — One sentence distilling the reasoning behind the rule. This is what gets loaded into context at session start. Must be self-contained and actionable.
+- **Entry text** — Full 1-2 line description with context and examples. Stored for reference but NOT loaded at session start (to keep context size manageable).
 - **Severity/confidence tag** — `critical`/`moderate`/`low` for amygdala, `proven`/`emerging` for nucleus accumbens
 - **Domain tag** — The category this belongs to
 
-Present the final entry for user approval before storing.
+Present the final entry for user approval before storing. The summary is critical — without it, the full entry_text bloats the session-start hook and causes tool-index truncation.
 
 ## 5. Store with Elevated Weight
 
@@ -59,10 +60,13 @@ node $PLUGIN_ROOT/scripts/dopamine-helper.js --insert \
   --domain "<domain>" \
   --title "<title>" \
   --entry "<full entry text>" \
+  --summary "<one-sentence reasoning>" \
   --severity "<tag>"
 ```
 
 Optional: `--weight <0-100>` to override the default increment. Use when the user specifies an exact weight.
+
+**The `--summary` flag is required for new entries.** Without it, the lesson loads with full entry_text at session start, which can push the hook output past the truncation threshold and lose the tool-index.
 
 This stores with weight = 50 (new) or +50 (reinforces existing, capped at 100). A single dopamine flag lands in Inclination tier. Two flags promote to Rule tier.
 

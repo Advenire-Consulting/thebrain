@@ -6,3 +6,4 @@ package-lock.json
 .session-count
 *.dir.json
 windows.json
+docs/benchmarks.md

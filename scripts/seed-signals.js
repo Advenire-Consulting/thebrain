@@ -20,14 +20,14 @@ function seed() {
   const lessonsData = JSON.parse(fs.readFileSync(path.join(SEED_DIR, 'starter-lessons.json'), 'utf-8'));
   const checkLesson = db.prepare('SELECT id FROM lessons WHERE title = ? AND status = \'active\'');
   const insertLesson = db.prepare(`
-    INSERT INTO lessons (brain_file, domain, title, entry_text, polarity,
+    INSERT INTO lessons (brain_file, domain, title, entry_text, summary, polarity,
                          confirmation_count, first_confirmed, last_confirmed)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
   for (const l of lessonsData.lessons) {
     if (checkLesson.get(l.title)) { skipped++; continue; }
-    insertLesson.run(l.brain_file, l.domain, l.title, l.entry_text, l.polarity, l.weight, now, now);
+    insertLesson.run(l.brain_file, l.domain, l.title, l.entry_text, l.summary || null, l.polarity, l.weight, now, now);
     lessonsAdded++;
   }
 
@@ -35,14 +35,14 @@ function seed() {
   const forcesData = JSON.parse(fs.readFileSync(path.join(SEED_DIR, 'starter-forces.json'), 'utf-8'));
   const checkForce = db.prepare('SELECT id FROM forces WHERE title = ? AND status = \'active\'');
   const insertForce = db.prepare(`
-    INSERT INTO forces (force_type, title, description, score,
+    INSERT INTO forces (force_type, title, description, summary, score,
                         first_observed, last_reinforced)
-    VALUES (?, ?, ?, ?, ?, ?)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
   `);
 
   for (const f of forcesData.forces) {
     if (checkForce.get(f.title)) { skipped++; continue; }
-    insertForce.run(f.force_type, f.title, f.description, f.score, now, now);
+    insertForce.run(f.force_type, f.title, f.description, f.summary || null, f.score, now, now);
     forcesAdded++;
   }
 

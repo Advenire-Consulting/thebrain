@@ -4,24 +4,28 @@
     {
       "force_type": "force",
       "title": "Constraint-driven design",
+      "summary": "Start from true constraints; the connections reveal themselves.",
       "description": "Real pieces reveal real relationships. Bring all the true constraints; the line segments between them become visible by instinct. Deduction from true starting points, not selection from possible options.",
       "score": 95
     },
     {
       "force_type": "force",
       "title": "Second seat",
+      "summary": "During refinement, optimize for the next person who reads or uses this.",
       "description": "Build for who comes after. Draft versions are messy — that's correct for first-seat problem-solving. During refinement, shift to second seat: elegance and ease for the next user or dev. The handoff is what matters.",
       "score": 90
     },
     {
       "force_type": "force",
       "title": "Notate code for readability",
+      "summary": "Comments and annotations are recall points to the invisible context of a moment.",
       "description": "Code should be well-annotated so that it's human-readable. Comments, naming, and structure serve as recall points — not just for the author, but for anyone who reads it next.",
       "score": 63
     },
     {
       "force_type": "behavioral_outcome",
       "title": "Perceptiveness is efficiency",
+      "summary": "Emotional attunement is faster than trial and error.",
       "description": "Emotional attunement isn't the soft alternative to logic — it's faster. Being perceptive replaces 50% of the work you'd otherwise have to do by trial and error.",
       "score": 100
     }

@@ -16,6 +16,7 @@ function parseArgs(argv) {
     else if (arg === '--title' && argv[i + 1]) args.title = argv[++i];
     else if (arg === '--entry' && argv[i + 1]) args.entry = argv[++i];
     else if (arg === '--severity' && argv[i + 1]) args.severity = argv[++i];
+    else if (arg === '--summary' && argv[i + 1]) args.summary = argv[++i];
     else if (arg === '--weight' && argv[i + 1]) {
       args.weight = parseInt(argv[++i], 10);
       if (isNaN(args.weight)) { console.error('Error: --weight must be a number'); process.exit(1); }
@@ -39,7 +40,7 @@ function main() {
       process.exit(1);
     }
     const result = insertLesson(db, args.brain, args.domain, args.title, args.entry,
-                                args.severity || 'moderate', args.weight);
+                                args.severity || 'moderate', args.weight, args.summary);
     console.log('\nDopamine signal stored:');
     console.log(`  Action: ${result.action}`);
     console.log(`  Brain: ${result.brain_file}`);
@@ -58,7 +59,7 @@ function main() {
     showLessons(db);
   } else {
     console.log('Usage: dopamine-helper.js --insert|--surface|--lessons [options]');
-    console.log('  --insert   --brain <file> --domain <d> --title <t> --entry <e> [--severity <s>] [--weight <w>]');
+    console.log('  --insert   --brain <file> --domain <d> --title <t> --entry <e> [--severity <s>] [--weight <w>] [--summary <s>]');
     console.log('  --surface  [--brain <file>] [--domain <d>] [--limit <n>] [--all]');
     console.log('  --lessons  List all tracked lessons with counts');
   }

@@ -140,16 +140,18 @@ Hold off → store as force with title and description reflecting conviction-fir
 
 ### Inserting Setup-Prompted Seeds
 
-After the questionnaire, insert all collected answers into signals.db using the helper scripts:
+After the questionnaire, insert all collected answers into signals.db using the helper scripts. **Every entry must include a `--summary`** — a one-sentence distillation that gets loaded into context at session start. Without it, the full text bloats the session-start hook and can truncate the tool-index.
 
 ```bash
 # For each amygdala lesson:
 node $PLUGIN_ROOT/scripts/dopamine-helper.js --insert \
-  --brain "amygdala" --domain "<domain>" --title "<title>" --entry "<entry>" --weight <weight>
+  --brain "amygdala" --domain "<domain>" --title "<title>" --entry "<entry>" \
+  --summary "<one-sentence reasoning>" --weight <weight>
 
 # For each force:
 node $PLUGIN_ROOT/scripts/oxytocin-helper.js --insert \
-  --title "<title>" --description "<description>" --score <score> --type "<type>"
+  --title "<title>" --description "<description>" \
+  --summary "<one-sentence reasoning>" --score <score> --type "<type>"
 ```
 
 ## Step 6: Seed Static Lessons and Forces

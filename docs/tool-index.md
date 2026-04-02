@@ -2,6 +2,8 @@
 
 Spatial awareness and long-term memory for code navigation and project history. All commands run from your workspace directory.
 
+**Default routing:** When you need to understand code — what files exist, what they do, what depends on what, what the schema looks like — route through these tools before falling back to Grep/Glob/Read. They return structured, token-efficient results built from indexed data. Standard tools are the fallback for queries brain tools don't cover (see "When Standard Tools Are Shorter" below).
+
 ## Hippocampus — Code Navigation (~150 tokens)
 
 ```
@@ -12,12 +14,14 @@ node $PLUGIN_ROOT/hippocampus/scripts/query.js <command>
 |---------|-------------|
 | `--map <project> [path]` | **Check first** — project directory map showing what each file does |
 | `--resolve <alias>` | Conversational name -> file path |
-| `--blast-radius <file>` | What imports it, what it imports |
-| `--lookup <file>` | Exports, routes, db refs, sensitivity |
-| `--find <identifier>` | Every occurrence across all projects with line numbers (JS, TS, Python, Shell, CSS) |
-| `--structure <file>` | Function/class/interface/type/def definitions with line numbers |
+| `--blast-radius <file>` | What imports it, what it imports (term index — unmapped files won't resolve) |
+| `--lookup <file>` | Exports, routes, db refs, sensitivity (dir file — mapped files only) |
+| `--find <identifier>` | Code identifiers across all projects with line numbers. For arbitrary strings, use Grep. |
+| `--structure <file>` | Function/class/interface/type/def definitions with line numbers (term index) |
 | `--list-aliases` | Browse all conversational aliases |
 | `--schema [--project p]` | Database table structures |
+
+**Paths** are relative to project root — `lib/data-bus.js`, not `sonder-runtime/lib/data-bus.js`.
 
 **Token-saving rule:** When the user asks you to work on a project you haven't touched this session, run `--map <project>` first. The map shows what every file does — both an auto-generated mechanical summary and an optional narrative description. This replaces reading multiple files just to get oriented. Only read individual files after the map tells you which ones matter.
 
@@ -43,6 +47,8 @@ Verbatim conversation recall — reasoning, rejected alternatives, the actual ba
 node $PLUGIN_ROOT/cerebral-cortex-v2/scripts/search.js "term1,term2" "term3" --limit 5
 ```
 Terms within quotes are comma-separated OR (a cluster). Separate arguments are additive clusters — more matched = higher score. Results now show per-window decision summaries.
+
+The `<session>` and `<seq>` arguments come from search results above. Search first, then drill into a specific window.
 
 **Digest** (~200 tokens, database-only):
 ```

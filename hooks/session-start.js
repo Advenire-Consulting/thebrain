@@ -179,6 +179,39 @@ function main() {
   parts.push('');
   parts.push('<!-- /brain-loaded -->');
 
+  // Size guard — if output exceeds 15KB, the tool-index (with resolved paths)
+  // risks being truncated from context. Regenerate prefrontal with summaries
+  // and warn. This is a self-healing mechanism.
+  const MAX_OUTPUT_BYTES = 15000;
+  const output = parts.join('\n');
+  if (Buffer.byteLength(output, 'utf-8') > MAX_OUTPUT_BYTES) {
+    process.stderr.write(`TheBrain: session-start output is ${Buffer.byteLength(output, 'utf-8')} bytes (>${MAX_OUTPUT_BYTES}). Auto-summarizing prefrontal to prevent tool-index truncation.\n`);
+    // Check if any lessons/forces are missing summaries — that's the likely cause
+    try {
+      const Database = require(path.join(PLUGIN_ROOT, 'node_modules', 'better-sqlite3'));
+      const db = new Database(SIGNALS_DB, { readonly: true });
+      const missingSummaries = db.prepare("SELECT COUNT(*) as n FROM lessons WHERE status = 'active' AND summary IS NULL").get().n
+        + db.prepare("SELECT COUNT(*) as n FROM forces WHERE status = 'active' AND force_type = 'force' AND summary IS NULL").get().n;
+      db.close();
+      if (missingSummaries > 0) {
+        process.stderr.write(`TheBrain: ${missingSummaries} signals missing summaries. Run /dopamine to add summaries, or manually update signals.db.\n`);
+      }
+    } catch (_) { /* best effort */ }
+    // Regenerate with current data (summaries should keep it small)
+    try {
+      execFileSync('node', [path.join(PLUGIN_ROOT, 'scripts', 'generate-prefrontal.js')], { stdio: 'ignore' });
+      // Rebuild output with fresh prefrontal
+      const pfcIdx = parts.indexOf('# Prefrontal — Decision Gates');
+      if (pfcIdx !== -1 && fs.existsSync(PFC_FILE)) {
+        // Find the end of prefrontal content (next EXTREMELY_IMPORTANT tag)
+        const eiIdx = parts.indexOf('<EXTREMELY_IMPORTANT>', pfcIdx);
+        if (eiIdx !== -1) {
+          parts.splice(pfcIdx + 1, eiIdx - pfcIdx - 1, '', fs.readFileSync(PFC_FILE, 'utf-8').trimEnd());
+        }
+      }
+    } catch (_) { /* already logged above if regen fails */ }
+  }
+
   outputJson(parts.join('\n'));
 }
 

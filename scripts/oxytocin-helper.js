@@ -14,7 +14,7 @@ function forceTierLabel(score) {
   return 'Deep context';
 }
 
-function insertForce(db, title, description, score, forceType, connections) {
+function insertForce(db, title, description, score, forceType, connections, summary) {
   forceType = forceType || 'force';
   const now = new Date().toISOString();
 
@@ -28,17 +28,17 @@ function insertForce(db, title, description, score, forceType, connections) {
     forceId = existing.id;
     newScore = (score != null) ? score : Math.min(existing.score + OXYTOCIN_INCREMENT, SCORE_CAP);
     db.prepare(`
-      UPDATE forces SET score = ?, description = ?, last_reinforced = ? WHERE id = ?
-    `).run(newScore, description, now, forceId);
+      UPDATE forces SET score = ?, description = ?, last_reinforced = ?${summary ? ', summary = ?' : ''} WHERE id = ?
+    `).run(...(summary ? [newScore, description, now, summary, forceId] : [newScore, description, now, forceId]));
     action = 'reinforced';
   } else {
     newScore = (score != null) ? score : 50;
     const connectionsJson = connections ? JSON.stringify(connections) : null;
     const result = db.prepare(`
-      INSERT INTO forces (force_type, title, description, connections, score,
+      INSERT INTO forces (force_type, title, description, summary, connections, score,
                           first_observed, last_reinforced)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `).run(forceType, title, description, connectionsJson, newScore, now, now);
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(forceType, title, description, summary || null, connectionsJson, newScore, now, now);
     forceId = result.lastInsertRowid;
     action = 'created';
   }
@@ -138,6 +138,7 @@ function parseArgs(argv) {
     else if (arg === '--all') args.all = true;
     else if (arg === '--title' && argv[i + 1]) args.title = argv[++i];
     else if (arg === '--description' && argv[i + 1]) args.description = argv[++i];
+    else if (arg === '--summary' && argv[i + 1]) args.summary = argv[++i];
     else if (arg === '--score' && argv[i + 1]) args.score = parseInt(argv[++i], 10);
     else if (arg === '--type' && argv[i + 1]) args.type = argv[++i];
     else if (arg === '--connections') {
@@ -161,7 +162,7 @@ function main() {
       process.exit(1);
     }
     const result = insertForce(db, args.title, args.description,
-                               args.score, args.type, args.connections);
+                               args.score, args.type, args.connections, args.summary);
     console.log('\nOxytocin signal stored:');
     console.log(`  Action: ${result.action}`);
     console.log(`  Type: ${result.force_type}`);
@@ -174,7 +175,7 @@ function main() {
     showForces(db);
   } else {
     console.log('Usage: oxytocin-helper.js --insert|--surface|--forces [options]');
-    console.log('  --insert   --title <t> --description <d> [--score <n>] [--type <t>] [--connections <c1> <c2>]');
+    console.log('  --insert   --title <t> --description <d> --summary <s> [--score <n>] [--type <t>] [--connections <c1> <c2>]');
     console.log('  --surface  [--all]');
     console.log('  --forces   List all tracked forces with scores');
   }

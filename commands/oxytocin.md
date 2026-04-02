@@ -40,12 +40,13 @@ If a match exists, this is a reinforcement (+10 score, capped at 100). If new, p
 
 Collaboratively craft:
 - **Title** — Short, evocative (2-5 words)
-- **Description** — 1-2 lines describing the principle and when it applies
+- **Summary** — One sentence distilling the force's reasoning. This is what gets loaded into context at session start. Must be self-contained.
+- **Description** — Full 1-2 lines describing the principle and when it applies. Stored for reference but NOT loaded at session start.
 - **Score** — Only set explicitly for new forces. Reinforcements auto-increment.
 - **Type** — force, connective_tissue, or behavioral_outcome
 - **Connections** — For connective tissue: which forces does it link?
 
-Present for user approval before storing.
+Present for user approval before storing. The summary is required — without it, the full description bloats session-start context.
 
 ## 5. Store
 
@@ -56,18 +57,21 @@ After user approves:
 node $PLUGIN_ROOT/scripts/oxytocin-helper.js --insert \
   --title "<title>" \
   --description "<description>" \
+  --summary "<one-sentence reasoning>" \
   --score <score> \
   --type "<force_type>"
 
 # Reinforce existing (omit --score for auto +10)
 node $PLUGIN_ROOT/scripts/oxytocin-helper.js --insert \
   --title "<exact existing title>" \
-  --description "<updated description>"
+  --description "<updated description>" \
+  --summary "<one-sentence reasoning>"
 
 # Connective tissue with connections
 node $PLUGIN_ROOT/scripts/oxytocin-helper.js --insert \
   --title "<title>" \
   --description "<description>" \
+  --summary "<one-sentence reasoning>" \
   --type connective_tissue \
   --connections "Force A" "Force B" "Force C"
 ```

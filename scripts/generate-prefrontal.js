@@ -16,29 +16,31 @@ function getOutputPath() {
   return process.env.THEBRAIN_PFC_OUTPUT || path.join(BRAIN_DIR, 'prefrontal-live.md');
 }
 
-function formatLesson(title, entryText, polarity, correctionText, weight) {
+// Format a lesson for prefrontal output — title + summary only (not full entry_text)
+function formatLesson(title, summary, polarity, weight) {
   const pol = polarity === 'positive' ? '(+)' : polarity === 'negative' ? '(-)' : '';
-  const text = (polarity === 'positive' && correctionText) ? correctionText : entryText;
+  const text = summary || title;
   return `- \`${weight}\` ${pol} **${title}** — ${text}`;
 }
 
 function getLessonsByTier(db, minWeight, maxWeight) {
   const query = maxWeight
-    ? "SELECT title, entry_text, polarity, correction_text, confirmation_count FROM lessons WHERE status = 'active' AND confirmation_count >= ? AND confirmation_count < ? ORDER BY confirmation_count DESC"
-    : "SELECT title, entry_text, polarity, correction_text, confirmation_count FROM lessons WHERE status = 'active' AND confirmation_count >= ? ORDER BY confirmation_count DESC";
+    ? "SELECT title, summary, polarity, confirmation_count FROM lessons WHERE status = 'active' AND confirmation_count >= ? AND confirmation_count < ? ORDER BY confirmation_count DESC"
+    : "SELECT title, summary, polarity, confirmation_count FROM lessons WHERE status = 'active' AND confirmation_count >= ? ORDER BY confirmation_count DESC";
   const params = maxWeight ? [minWeight, maxWeight] : [minWeight];
   return db.prepare(query).all(...params).map(r =>
-    formatLesson(r.title, r.entry_text, r.polarity, r.correction_text, r.confirmation_count)
+    formatLesson(r.title, r.summary, r.polarity, r.confirmation_count)
   );
 }
 
+// Format forces using summary (falls back to description if no summary)
 function getForcesByTier(db, minScore, maxScore) {
   const query = maxScore
-    ? "SELECT title, description, score FROM forces WHERE status = 'active' AND force_type = 'force' AND score >= ? AND score < ? ORDER BY score DESC"
-    : "SELECT title, description, score FROM forces WHERE status = 'active' AND force_type = 'force' AND score >= ? ORDER BY score DESC";
+    ? "SELECT title, summary, description, score FROM forces WHERE status = 'active' AND force_type = 'force' AND score >= ? AND score < ? ORDER BY score DESC"
+    : "SELECT title, summary, description, score FROM forces WHERE status = 'active' AND force_type = 'force' AND score >= ? ORDER BY score DESC";
   const params = maxScore ? [minScore, maxScore] : [minScore];
   return db.prepare(query).all(...params).map(r =>
-    `- \`${r.score}\` **${r.title}** — ${r.description}`
+    `- \`${r.score}\` **${r.title}** — ${r.summary || r.description}`
   );
 }
 
