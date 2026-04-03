@@ -84,6 +84,52 @@ node $PLUGIN_ROOT/cerebral-cortex-v2/scripts/stopword-candidates.js --list
 ```
 Terms flagged as noise 5 times without a relevant hit are auto-promoted to the dynamic filter. A relevant hit resets the noise streak. Demote pulls a term back if search results degrade. Do this incrementally during normal CC2 usage — a few terms per session, not bulk.
 
+## Hippocampus — Content Search (~variable tokens)
+
+Project-aware search tools that return matches with surrounding context in one call. Use these **instead of Grep+Read cycles** — they save significant tokens by returning context inline, grouped by project.
+
+### Grep (project-aware content search)
+
+```
+node $PLUGIN_ROOT/hippocampus/scripts/grep.js <pattern> [options]
+```
+
+Searches all files in all known project directories for a regex pattern. Returns matches with surrounding lines, grouped by project. Skips node_modules, .git, build artifacts, binaries.
+
+| Option | What it does |
+|--------|-------------|
+| `--context N` / `-C N` | Lines of context around each match (default: 3) |
+| `--project <name>` | Filter to one project (substring match) |
+| `--max-per-file N` | Cap matches shown per file (default: 20) |
+
+**When to use:** Any time you need "show me everywhere X appears and what the code is doing around it" — hardcoded URLs, config keys, API endpoint usage, security audits (`innerHTML`, `eval`), migration tracking. One command replaces dozens of Grep+Read cycles.
+
+### Classify (pattern variant audit with direction detection)
+
+```
+node $PLUGIN_ROOT/hippocampus/scripts/classify.js --inline "label1=pattern1" "label2=pattern2" [options]
+node $PLUGIN_ROOT/hippocampus/scripts/classify.js <config.json> [options]
+```
+
+Takes named regex variants and categorizes every match by which variant it uses. Each hit is tagged with a **direction** — whether the code is making a request `[client]`, defining a route `[server]`, setting a config value `[config]`, or just a reference `[reference]`. Shows percentage breakdown.
+
+| Option | What it does |
+|--------|-------------|
+| `--project <name>` | Filter to one project |
+| `--context N` / `-C N` | Lines of context per match (default: 1) |
+| `--no-snippets` | Summary only, no code snippets |
+
+Config file format for reusable audits:
+```json
+{
+  "name": "Description",
+  "variants": { "label1": "regex1", "label2": "regex2" },
+  "exclude": ["tests/", "docs/"]
+}
+```
+
+**When to use:** Migration audits ("how much code uses the old pattern vs new?"), convention checks ("are all API calls going through the right base path?"), routing analysis ("which files construct URLs to this service and how?").
+
 ## What Answers What
 
 | Question | Tool |
@@ -98,13 +144,15 @@ Terms flagged as noise 5 times without a relevant hit are auto-promoted to the d
 | "What was the reasoning behind X?" | Project memory for pointers, CC2 for detail |
 | "What's in this project?" / "What does each file do?" | `--map <project>` |
 | "What aliases exist?" | `--list-aliases` or `--list-projects` |
+| "Where is this string/pattern used?" | `grep.js <pattern>` |
+| "How much code uses pattern A vs B?" | `classify.js --inline "A=..." "B=..."` |
 
 ## When Standard Tools Are Shorter
 
 - **"Does this path exist?" / "What's in this directory?"** -> `ls`
 - **User gave a file path** -> `Read` it directly
 - **User mentions a specific location** -> go there directly
-- **Searching for a string pattern across files** -> `Grep`
+- **Searching for a known string in 1-2 specific files** -> `Grep` (built-in is fine for narrow, targeted searches)
 
 ## Behavioral System
 

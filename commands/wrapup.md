@@ -19,7 +19,7 @@ Save current project state. Do all steps in order — do not ask to proceed, jus
    Summary: One-line description of what was done
    Next: Where we left off / what's pending
    ```
-   Use the current date/time (YYYY-MM-DD HH:MM, 24h). For `SESSION_ID`, run `node $PLUGIN_ROOT/scripts/session-id.js`.
+   **REQUIRED: Get the real time by running `date '+%Y-%m-%d %H:%M'` — do NOT guess or estimate the timestamp.** Use that output as the `YYYY-MM-DD HH:MM` value. For `SESSION_ID`, run `node $PLUGIN_ROOT/scripts/session-id.js`.
 
 5b. **Update queued plans** — Read `~/.claude/brain/queued-plans.md`. If this session's `Next:` references a plan doc, add it if missing. If this session completed a queued item, check it off (`- [x]`). Remove checked items older than 2 sessions.
 

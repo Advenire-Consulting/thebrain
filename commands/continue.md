@@ -28,7 +28,7 @@ Captures project state for pickup later — whether after compaction, next sessi
    Summary: One-line description of what was done
    Next: Where we left off / what's pending
    ```
-   Use the current date and time (YYYY-MM-DD HH:MM in 24h) and the project/scope from step 1. For `SESSION_ID`, run `node $PLUGIN_ROOT/scripts/session-id.js`. The indexer keeps the last 3 entries and clears older ones after ingestion.
+   **REQUIRED: Get the real time by running `date '+%Y-%m-%d %H:%M'` — do NOT guess or estimate the timestamp.** Use that output as the `YYYY-MM-DD HH:MM` value. For `SESSION_ID`, run `node $PLUGIN_ROOT/scripts/session-id.js`. The indexer keeps the last 3 entries and clears older ones after ingestion.
 5b. **Update queued plans** — Read `~/.claude/brain/queued-plans.md`. If this session's `Next:` references a plan doc, add it if missing. If this session completed a queued item, check it off (`- [x]`). Remove checked items older than 2 sessions.
 5c. **Update DIR file if needed** — If a new conversational alias was used this session (user named a system/flow for the first time), append it to the relevant DIR file at `~/.claude/brain/hippocampus/<project>.dir.json`. Most sessions: skip silently.
 5d. **Enrich file descriptions** — Run `node $PLUGIN_ROOT/hippocampus/scripts/undescribed.js <project>` (scoped to the project you worked on). For each file listed that you edited or read in depth this session, add a description using:

@@ -9,7 +9,8 @@ Spatial map of the codebase. Knows where every significant file lives, what it i
 3. **Resolves aliases** — "portal auth" maps to a specific file path
 4. **Calculates blast radius** — how many files depend on a given file
 5. **Indexes identifiers** — every function, class, variable, CSS selector across all projects with line numbers
-6. **Provides spatial data** to the hypothalamus for safety checks and to CC2 for project resolution
+6. **Searches content** — project-aware grep with context, and pattern variant classification with direction detection
+7. **Provides spatial data** to the hypothalamus for safety checks and to CC2 for project resolution
 
 ## Key Files
 
@@ -24,6 +25,8 @@ Spatial map of the codebase. Knows where every significant file lives, what it i
 | `extractors/*.js` | Per-language extraction adapters (JS, TS, Python, Shell, CSS) |
 | `scripts/scan.js` | Filesystem scanner — produces DIR files, auto-discovers projects |
 | `scripts/query.js` | CLI — map, resolve, blast-radius, lookup, find, structure, schema |
+| `scripts/grep.js` | Project-aware content search — regex across all projects with context |
+| `scripts/classify.js` | Pattern variant classifier — categorize files by URL/convention variants with direction detection |
 | `scripts/term-scan-cli.js` | Incremental term index scan across all projects |
 | `~/.claude/brain/hippocampus/*.dir.json` | Output — one DIR file per project |
 | `~/.claude/brain/hippocampus/terms.db` | Term index database |
@@ -45,6 +48,33 @@ node $PLUGIN_ROOT/hippocampus/scripts/query.js <command>
 | `--list-projects` | List all mapped projects with file counts |
 | `--list-aliases [--project p]` | Browse conversational aliases |
 | `--schema [--project p]` | Database table structures |
+
+## Content Search
+
+Live content search across project files. Uses DIR files for project boundaries but searches file content at query time (not cached).
+
+### grep.js — Project-aware content search
+
+```
+node $PLUGIN_ROOT/hippocampus/scripts/grep.js <pattern> [--project name] [--context N] [--max-per-file N]
+```
+
+Walks all files in known project directories, searches for a regex, returns matches with surrounding context grouped by project. Skips node_modules, .git, build artifacts, binaries. Default 3 lines of context.
+
+Use cases: hardcoded URL patterns, config key usage, security audits (innerHTML, eval), API endpoint references, migration tracking. Replaces multi-round Grep+Read cycles with one command.
+
+### classify.js — Pattern variant classifier
+
+```
+node $PLUGIN_ROOT/hippocampus/scripts/classify.js --inline "label=regex" "label=regex" [--project name] [--context N] [--no-snippets]
+node $PLUGIN_ROOT/hippocampus/scripts/classify.js <config.json> [--project name]
+```
+
+Takes multiple named regex variants, scans all project files, reports which files match which variant. Each hit is tagged with a **direction**: `[client]` (fetch, XHR), `[server]` (route definition), `[config]` (URL assignment), or `[reference]` (comment, test). Shows percentage breakdown by variant and by direction.
+
+Config files (JSON) support `exclude` patterns and a `name` field. Useful for reusable audits.
+
+Use cases: migration audits ("how much code uses old pattern vs new?"), convention enforcement, routing analysis across Caddy/Express/frontend boundaries.
 
 ## DIR File Shape
 

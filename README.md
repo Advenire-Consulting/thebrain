@@ -42,6 +42,8 @@ Your spatial map. Scans all registered workspaces and builds a structured index 
 
 **Navigation** answers structural questions without grep: `--blast-radius` shows what depends on a file and what it imports, `--find` locates every occurrence of an identifier across all projects with line numbers, `--structure` returns function/class/interface definitions with line numbers, `--lookup` shows a file's exports, routes, and database references, and `--schema` returns database table structures.
 
+**Content search** (`grep.js`, `classify.js`) searches actual file content across all projects in one call, returning matches with surrounding context grouped by project. `classify.js` goes further — give it named regex variants and it categorizes every match by variant, tagging each hit with its direction: is this code making a request, defining a route, setting config, or just a comment? One command replaces the dozens of grep-then-read cycles that burn tokens and context window space. Built for migration audits, convention enforcement, and routing analysis across service boundaries.
+
 **Conversational aliases** let you say "show me the auth middleware" instead of remembering `lib/middleware/auth.js`. Aliases are preserved across re-scans. Auto-discovers new projects when you add workspace directories.
 
 ### Cerebral Cortex v2 — Conversation Recall
@@ -115,6 +117,7 @@ Over a 30-turn session, the difference is roughly **100,000–300,000 cumulative
 |----------------|-----------------|
 | Hippocampus `--map` | Multi-file exploratory reads to understand a project |
 | Hippocampus `--find`, `--blast-radius` | Grep chains that read wrong files first |
+| Hippocampus `grep.js`, `classify.js` | Dozens of grep+read cycles to audit patterns across projects; manual classification of which code uses which convention |
 | Cerebral Cortex search + digest | Reading raw JSONL conversation files (dense, unindexed) |
 | Prefrontal behavioral rules | Re-learning user preferences every session; mistakes that burn tokens before the user can intervene |
 | dlPFC working memory | 8-12 re-orientation file reads at session start; Claude knowing *which* files matter but not *why* |
