@@ -130,6 +130,23 @@ Config file format for reusable audits:
 
 **When to use:** Migration audits ("how much code uses the old pattern vs new?"), convention checks ("are all API calls going through the right base path?"), routing analysis ("which files construct URLs to this service and how?").
 
+## Hippocampus — Flow Graph (~100-300 tokens)
+
+AST-based code intelligence — traces data flow, middleware chains, database access, and cross-project dependencies.
+
+```
+node $PLUGIN_ROOT/hippocampus/scripts/flow.js <command>
+```
+
+| Command | What it does |
+|---------|-------------|
+| `--trace <identifier> [--project P]` | Follow a value — where set, who reads it, what it calls |
+| `--flow <file> --project P` | Everything flowing in/out of a file |
+| `--notes <file:name> [--project P]` | Show annotations for a node |
+| `--annotate <file:name> "note" [--project P]` | Add a note to a node |
+
+**When to use:** When you need to understand data flow ("where does req.company come from?"), middleware ordering ("what runs before my route?"), database access ("what tables does this file touch?"), or cross-project dependencies ("what calls this API endpoint?").
+
 ## What Answers What
 
 | Question | Tool |
@@ -146,6 +163,11 @@ Config file format for reusable audits:
 | "What aliases exist?" | `--list-aliases` or `--list-projects` |
 | "Where is this string/pattern used?" | `grep.js <pattern>` |
 | "How much code uses pattern A vs B?" | `classify.js --inline "A=..." "B=..."` |
+| "How does data flow through this file?" | `flow.js --flow <file> --project P` |
+| "Where is this value set and who reads it?" | `flow.js --trace <identifier>` |
+| "What middleware runs before my route?" | `flow.js --trace req.<property>` |
+| "What tables does this file access?" | `flow.js --flow <file> --project P` |
+| "What would break if I changed this?" | `flow.js --trace <function>` |
 
 ## When Standard Tools Are Shorter
 

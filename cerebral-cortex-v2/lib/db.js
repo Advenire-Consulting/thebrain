@@ -150,6 +150,9 @@ class RecallDB {
     ).run(windowId, scope || null, summary, files || null, next || null);
   }
 
+  // Alias — PFC summaries always overwrite mechanical ones
+  upsertSummary(windowId, data) { return this.insertSummary(windowId, data); }
+
   getSummary(windowId) {
     return this.db.prepare('SELECT * FROM window_summaries WHERE window_id = ?').get(windowId);
   }

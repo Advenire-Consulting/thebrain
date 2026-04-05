@@ -5,7 +5,7 @@ const fs = require('fs');
 const { TermDB } = require('../lib/term-db');
 const { termScanProject } = require('../lib/term-scanner');
 
-const WEBSITES_DIR = path.resolve(__dirname, '../../../..');
+const WEBSITES_DIR = path.resolve(__dirname, '../../..');
 
 const PROJECTS = [
   { dir: 'advenire.consulting', name: 'advenire-portal' },
@@ -14,8 +14,7 @@ const PROJECTS = [
   { dir: 'sondercontrols', name: 'sondercontrols' },
   { dir: 'signal-assistant', name: 'signal-assistant' },
   { dir: '_shared', name: 'shared-library' },
-  { dir: 'SonderPlugins/thebrain', name: 'thebrain' },
-  { dir: 'SonderPlugins/sloppy', name: 'sloppy' },
+  { dir: 'thebrain-package', name: 'thebrain' },
   { dir: 'conversation-explorer', name: 'conversation-explorer' },
 ];
 

@@ -3,8 +3,11 @@
   "version": "1.0.0",
   "description": "Cognitive layer for Claude Code — code navigation, conversation recall, safety hooks, behavioral learning",
   "private": true,
-  "engines": { "node": ">=18.0.0" },
+  "engines": {
+    "node": ">=18.0.0"
+  },
   "dependencies": {
+    "acorn": "^8.16.0",
     "better-sqlite3": "^12.6.2"
   },
   "scripts": {

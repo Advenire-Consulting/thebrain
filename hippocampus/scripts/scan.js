@@ -275,11 +275,11 @@ function scanProject(projectDir, name, root, outputDir) {
 const SKIP_DIRS_DISCOVERY = new Set([
   'node_modules', '.git', '.worktrees', 'marked-for-deletion',
   'Archived', 'Claudes', 'docs', 'schemas', 'snippets',
-  'SonderPlugins',  // scanned as nested projects below
+  'SonderPlugins',
 ]);
 
 // Nested project parents — scan their children as individual projects.
-const NESTED_PARENTS = ['SonderPlugins'];
+const NESTED_PARENTS = [];
 
 // Existing DIR files may use names that don't match directory names.
 const NAME_OVERRIDES = {
@@ -287,8 +287,7 @@ const NAME_OVERRIDES = {
   'michaelortegon.com': 'michaelortegon',
   'sonderos.org': 'sonderos',
   '_shared': 'shared-library',
-  'SonderPlugins/thebrain': 'thebrain',
-  'SonderPlugins/sloppy': 'sloppy',
+  'thebrain-package': 'thebrain',
 };
 
 function deriveName(dirRelative) {

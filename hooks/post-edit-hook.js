@@ -142,6 +142,21 @@ if (require.main === module) {
   try { updateSingleFile(db, filePath, matchedProject, projectDir); }
   finally { db.close(); }
 
+  // Update flow graph for edited file
+  try {
+    const flowScanPath = path.join(__dirname, '../hippocampus/scripts/flow-scan.js');
+    if (fs.existsSync(flowScanPath)) {
+      const relativeToProject = path.relative(projectDir, filePath);
+      const { execFileSync } = require('child_process');
+      execFileSync('node', [flowScanPath, '--file', matchedProject, relativeToProject], {
+        timeout: 10000,
+        stdio: 'pipe',
+      });
+    }
+  } catch (err) {
+    process.stderr.write(`[post-edit] Flow scan failed: ${err.message}\n`);
+  }
+
   updateDIREntry(filePath, projectDir, matchedProject, hippocampusDir);
   resetHypothalamusWarning(sessionId, filePath);
 

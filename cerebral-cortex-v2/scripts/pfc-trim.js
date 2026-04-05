@@ -80,8 +80,9 @@ function main() {
         if (!sessionIdPrefix) continue;
 
         var win = cc2.findWindowBySessionAndTime(sessionIdPrefix, hhmm, date);
-        if (win && !cc2.getSummary(win.id)) {
-          cc2.insertSummary(win.id, { scope: scope, summary: summary, files: files, next: next });
+        if (win) {
+          // PFC summaries always overwrite mechanical ones — they're hand-curated
+          cc2.upsertSummary(win.id, { scope: scope, summary: summary, files: files, next: next });
           migrated++;
         }
       }
