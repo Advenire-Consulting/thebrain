@@ -4,6 +4,8 @@ description: "Flag a behavioral moment — positive (nucleus accumbens) or negat
 
 A deliberate "this moment matters" flag. A structured discussion about what just happened and why it matters.
 
+**`$PLUGIN_ROOT` resolution:** Read the first line of `~/.claude/rules/brain-tools.md` — it contains `<!-- PLUGIN_ROOT: /path/to/thebrain -->`. Use that path wherever `$PLUGIN_ROOT` appears below.
+
 **Routing:**
 - `/dopamine +` — Something worked well. Brain file is **nucleus accumbens**. Still discuss the lesson in step 2.
 - `/dopamine -` — Something burned us. Brain file is **amygdala**. Still discuss the lesson in step 2.

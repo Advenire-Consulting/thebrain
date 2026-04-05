@@ -4,6 +4,8 @@ description: "Context preservation and restoration — save state, restore after
 
 Context preservation and restoration. Use before compaction, after compaction, or to pick up a project.
 
+**`$PLUGIN_ROOT` resolution:** Read the first line of `~/.claude/rules/brain-tools.md` — it contains `<!-- PLUGIN_ROOT: /path/to/thebrain -->`. Use that path wherever `$PLUGIN_ROOT` appears below.
+
 ## Usage
 
 - `/continue save` — save current state before compaction

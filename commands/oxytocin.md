@@ -4,6 +4,8 @@ description: "Flag a relational dynamic — reinforce an existing force or name 
 
 A deliberate "this relationship dynamic matters" flag. A structured discussion about a relational force, design value, or collaboration pattern.
 
+**`$PLUGIN_ROOT` resolution:** Read the first line of `~/.claude/rules/brain-tools.md` — it contains `<!-- PLUGIN_ROOT: /path/to/thebrain -->`. Use that path wherever `$PLUGIN_ROOT` appears below.
+
 **Routing:**
 - `/oxytocin +` — Reinforce an existing force. Score goes up.
 - `/oxytocin new` — A new force emerged. Discuss and create it.

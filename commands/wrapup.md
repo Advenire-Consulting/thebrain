@@ -4,6 +4,8 @@ description: "Save current project state for next session"
 
 Save current project state. Do all steps in order — do not ask to proceed, just execute.
 
+**`$PLUGIN_ROOT` resolution:** Read the first line of `~/.claude/rules/brain-tools.md` — it contains `<!-- PLUGIN_ROOT: /path/to/thebrain -->`. Use that path wherever `$PLUGIN_ROOT` appears below.
+
 1. **dlPFC gate** — Ask: "Should this session be logged to working memory (dlPFC)?" Remember the answer for step 6.
 
 2. **Identify the project** — based on what was worked on in this conversation.
