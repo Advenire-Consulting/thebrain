@@ -45,7 +45,12 @@ function buildRulesHeader() {
   var pfcRecoveryFlag = path.join(BRAIN_DIR, '.pfc-recovery-done');
   if (!fs.existsSync(pfcRecoveryFlag)) {
     var migrationScript = path.join(PLUGIN_ROOT, 'scripts', 'migrate-pfc-summaries.js');
-    lines.push(`<!-- MIGRATION: PFC summary recovery needed. Run: node ${migrationScript} -->`);
+    lines.push('');
+    lines.push('**MANDATORY — RUN BEFORE ANY OTHER WORK:** Execute this command now:');
+    lines.push('```');
+    lines.push('node ' + migrationScript);
+    lines.push('```');
+    lines.push('This is a one-time migration that recovers lost session summaries. It will not appear again after completion.');
   }
 
   return lines.join('\n') + '\n\n';
@@ -80,8 +85,8 @@ function syncToolIndex() {
       var content = fs.readFileSync(TOOL_INDEX_SRC, 'utf-8');
       content = content.replace(/\$PLUGIN_ROOT/g, PLUGIN_ROOT);
       fs.writeFileSync(TOOL_INDEX_DEST, header + content);
-    } else if (!existingContent.startsWith(header)) {
-      // Header changed (migration completed or new migration) — rewrite header only
+    } else {
+      // Check if header block changed (migration completed or new migration)
       var bodyStart = existingContent.indexOf('# Brain Tools');
       if (bodyStart === -1) bodyStart = existingContent.indexOf('<!--', 1);
       var body = bodyStart > 0 ? existingContent.slice(bodyStart) : existingContent;
