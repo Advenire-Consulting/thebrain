@@ -25,9 +25,17 @@ const dbPath = flag('--db');
 function resolveFileInIndex(termDb, file, project) {
   if (project) return { project, path: file };
   const allFiles = termDb.getAllFiles();
-  const match = allFiles.find(f =>
+  let match = allFiles.find(f =>
     f.path === file || f.path.endsWith('/' + file) || path.basename(f.path) === file
   );
+  // Fallback: try stripping a project root prefix (e.g. "drip/frontend/..." → "frontend/...")
+  if (!match) {
+    const slash = file.indexOf('/');
+    if (slash !== -1) {
+      const stripped = file.slice(slash + 1);
+      match = allFiles.find(f => f.path === stripped || f.path.endsWith('/' + stripped));
+    }
+  }
   if (!match) { console.error(`"${file}" not found in term index`); process.exit(1); }
   return { project: match.project, path: match.path };
 }
@@ -265,9 +273,17 @@ switch (command) {
         printJson(results);
       } else {
         const allFiles = termDb.getAllFiles();
-        const matches = allFiles.filter(f =>
+        let matches = allFiles.filter(f =>
           f.path === file || f.path.endsWith('/' + file) || path.basename(f.path) === file
         );
+        // Fallback: strip project root prefix (e.g. "drip/frontend/..." → "frontend/...")
+        if (matches.length === 0) {
+          const slash = file.indexOf('/');
+          if (slash !== -1) {
+            const stripped = file.slice(slash + 1);
+            matches = allFiles.filter(f => f.path === stripped || f.path.endsWith('/' + stripped));
+          }
+        }
         if (matches.length === 0) {
           console.log(`"${file}" not found in term index`);
           process.exit(1);
