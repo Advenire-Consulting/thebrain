@@ -4,19 +4,16 @@ const path = require('path');
 const fs = require('fs');
 const { TermDB } = require('../lib/term-db');
 const { termScanProject } = require('../lib/term-scanner');
+const { loadAllDIR } = require('../lib/dir-loader');
 
 const WEBSITES_DIR = path.resolve(__dirname, '../../..');
 
-const PROJECTS = [
-  { dir: 'advenire.consulting', name: 'advenire-portal' },
-  { dir: 'michaelortegon.com', name: 'michaelortegon' },
-  { dir: 'sonderos.org', name: 'sonderos' },
-  { dir: 'sondercontrols', name: 'sondercontrols' },
-  { dir: 'signal-assistant', name: 'signal-assistant' },
-  { dir: '_shared', name: 'shared-library' },
-  { dir: 'thebrain-package', name: 'thebrain' },
-  { dir: 'conversation-explorer', name: 'conversation-explorer' },
-];
+// Derive project list from DIR files — no hardcoded list to fall out of sync
+const dirs = loadAllDIR();
+const PROJECTS = dirs.map(d => ({
+  dir: d.root.replace(/\/$/, ''),
+  name: d.name,
+}));
 
 const forceFlag = process.argv.includes('--force');
 

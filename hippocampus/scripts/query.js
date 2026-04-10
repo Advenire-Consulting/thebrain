@@ -21,8 +21,33 @@ function printJson(obj) {
 
 const dbPath = flag('--db');
 
+// Resolve a file path in the term index — returns { project, path } or exits
+function resolveFileInIndex(termDb, file, project) {
+  if (project) return { project, path: file };
+  const allFiles = termDb.getAllFiles();
+  const match = allFiles.find(f =>
+    f.path === file || f.path.endsWith('/' + file) || path.basename(f.path) === file
+  );
+  if (!match) { console.error(`"${file}" not found in term index`); process.exit(1); }
+  return { project: match.project, path: match.path };
+}
+
+// Resolve a project-relative file path to an absolute path on disk
+function resolveAbsPath(resolvedProject, resolvedPath) {
+  const dirData = dirs.find(d => d.name === resolvedProject);
+  if (!dirData) { console.error(`Project "${resolvedProject}" not found in DIR files`); process.exit(1); }
+  const { loadConfig } = require('../../lib/config');
+  const cfg = loadConfig();
+  for (const ws of cfg.workspaces || []) {
+    const candidate = path.join(path.resolve(ws.path), dirData.root, resolvedPath);
+    if (fs.existsSync(candidate)) return candidate;
+  }
+  console.error(`Could not resolve "${resolvedPath}" on disk`);
+  process.exit(1);
+}
+
 // Term index commands don't need DIR files
-if (['--find', '--structure'].includes(command)) {
+if (['--find', '--structure', '--diff-symbols'].includes(command)) {
   // handled below in switch
 } else {
   var dirs = loadAllDIR();
@@ -262,6 +287,145 @@ switch (command) {
     break;
   }
 
+  case '--body': {
+    // Extract a named function/definition body from source using term index line numbers
+    const file = args[1];
+    const name = args[2];
+    if (!file || !name) { console.error('Usage: --body <file> <name> [--project p]'); process.exit(1); }
+    const project = flag('--project');
+    const termDb = new TermDB(dbPath || undefined);
+    try {
+      const resolved = resolveFileInIndex(termDb, file, project);
+      const defs = termDb.getStructure(resolved.project, resolved.path);
+
+      const target = defs.find(d => d.name === name);
+      if (!target) { console.error(`"${name}" not found in ${resolved.path}`); process.exit(1); }
+
+      const absPath = resolveAbsPath(resolved.project, resolved.path);
+      const source = fs.readFileSync(absPath, 'utf-8').split('\n');
+
+      // Find end line — next definition's start, or end of script section, or EOF
+      const nextDef = defs.filter(d => d.line > target.line).sort((a, b) => a.line - b.line)[0];
+      let endLine;
+      if (nextDef) {
+        endLine = nextDef.line - 1;
+      } else if (absPath.endsWith('.svelte')) {
+        // Last definition in script block — find </script>
+        endLine = source.length;
+        for (let i = target.line; i < source.length; i++) {
+          if (/^\s*<\/script>/.test(source[i])) { endLine = i; break; }
+        }
+      } else {
+        endLine = source.length;
+      }
+      // Trim trailing blank lines
+      while (endLine > target.line && source[endLine - 1].trim() === '') endLine--;
+
+      console.log(source.slice(target.line - 1, endLine).join('\n'));
+    } finally {
+      termDb.close();
+    }
+    break;
+  }
+
+  case '--section': {
+    // Extract a named section (script, template, style) from a Svelte file
+    const file = args[1];
+    const section = args[2];
+    if (!file || !section || !['script', 'template', 'style'].includes(section)) {
+      console.error('Usage: --section <file> script|template|style [--project p]');
+      process.exit(1);
+    }
+    const project = flag('--project');
+
+    const termDb = new TermDB(dbPath || undefined);
+    let resolved;
+    try {
+      resolved = resolveFileInIndex(termDb, file, project);
+    } finally {
+      termDb.close();
+    }
+
+    if (!resolved.path.endsWith('.svelte')) {
+      console.error('--section only works with .svelte files');
+      process.exit(1);
+    }
+
+    const absPath = resolveAbsPath(resolved.project, resolved.path);
+    const source = fs.readFileSync(absPath, 'utf-8').split('\n');
+
+    // Find section boundaries
+    let scriptStart = -1, scriptEnd = -1, styleStart = -1, styleEnd = -1;
+    for (let i = 0; i < source.length; i++) {
+      if (/^<script[\s>]/.test(source[i]) && scriptStart === -1) scriptStart = i;
+      if (/^<\/script>/.test(source[i]) && scriptStart !== -1) scriptEnd = i;
+      if (/^<style[\s>]/.test(source[i]) && styleStart === -1) styleStart = i;
+      if (/^<\/style>/.test(source[i]) && styleStart !== -1) styleEnd = i;
+    }
+
+    let start, end;
+    if (section === 'script') {
+      if (scriptStart === -1) { console.error('No <script> block found'); process.exit(1); }
+      start = scriptStart;
+      end = scriptEnd >= 0 ? scriptEnd + 1 : source.length;
+    } else if (section === 'style') {
+      if (styleStart === -1) { console.error('No <style> block found'); process.exit(1); }
+      start = styleStart;
+      end = styleEnd >= 0 ? styleEnd + 1 : source.length;
+    } else {
+      // Template = everything between </script> and <style> (or EOF if no style)
+      start = scriptEnd >= 0 ? scriptEnd + 1 : 0;
+      end = styleStart >= 0 ? styleStart : source.length;
+      // Trim leading/trailing blank lines from template section
+      while (start < end && source[start].trim() === '') start++;
+      while (end > start && source[end - 1].trim() === '') end--;
+    }
+
+    // Output with 1-indexed line numbers for easy reference
+    const lines = source.slice(start, end);
+    console.log(`Lines ${start + 1}-${end} of ${resolved.path}:`);
+    console.log(lines.join('\n'));
+    break;
+  }
+
+  case '--diff-symbols': {
+    // Compare definitions between two files — shows what's in A only, B only, or both
+    const fileA = args[1];
+    const fileB = args[2];
+    if (!fileA || !fileB) { console.error('Usage: --diff-symbols <file-a> <file-b> [--project p]'); process.exit(1); }
+    const project = flag('--project');
+    const termDb = new TermDB(dbPath || undefined);
+    try {
+      const a = resolveFileInIndex(termDb, fileA, project);
+      const b = resolveFileInIndex(termDb, fileB, project);
+      const defsA = termDb.getStructure(a.project, a.path);
+      const defsB = termDb.getStructure(b.project, b.path);
+
+      // Build name→type maps
+      const mapA = new Map(defsA.map(d => [d.name, d.type]));
+      const mapB = new Map(defsB.map(d => [d.name, d.type]));
+
+      const onlyA = defsA.filter(d => !mapB.has(d.name)).map(d => ({ name: d.name, type: d.type, line: d.line }));
+      const onlyB = defsB.filter(d => !mapA.has(d.name)).map(d => ({ name: d.name, type: d.type, line: d.line }));
+      const both = defsA.filter(d => mapB.has(d.name)).map(d => ({
+        name: d.name,
+        typeA: d.type, lineA: d.line,
+        typeB: mapB.get(d.name), lineB: defsB.find(x => x.name === d.name).line,
+      }));
+
+      printJson({
+        fileA: a.path,
+        fileB: b.path,
+        onlyInA: onlyA,
+        onlyInB: onlyB,
+        inBoth: both,
+      });
+    } finally {
+      termDb.close();
+    }
+    break;
+  }
+
   default:
     console.log(`Hippocampus Query — codebase spatial map
 
@@ -277,6 +441,9 @@ Commands:
   --schema [--project p]               Show database schemas
   --find <identifier> [--project p]    Find every occurrence across all projects
   --structure <file> [--project p]     Show function/class/CSS definitions with line numbers
+  --body <file> <name> [--project p]   Extract a function/definition body from source
+  --section <file> script|template|style [--project p]  Extract Svelte file section
+  --diff-symbols <file-a> <file-b> [--project p]        Compare definitions between two files
 
 Examples:
   --resolve "portal auth"
@@ -286,6 +453,9 @@ Examples:
   --map advenire-portal server/
   --list-aliases --project advenire
   --find escapeHtml
-  --structure server-utils.js`);
+  --structure server-utils.js
+  --body ThreadPanel.svelte handleSend --project drip
+  --section ThreadPanel.svelte script --project drip
+  --diff-symbols ThreadPanel.svelte ThreadConversation.svelte --project drip`);
     break;
 }

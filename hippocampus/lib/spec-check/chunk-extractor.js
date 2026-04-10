@@ -54,12 +54,30 @@ function extractChunkBody(planContents, chunkNumber) {
   return lines.slice(target.startLine - 1, target.endLine).join('\n').trimEnd();
 }
 
+// Scan prior chunks (1..chunkNumber-1) for files listed as "- Create: `path`"
+// in their Touched files sections. Returns an array of file paths.
+function extractPriorCreatedFiles(planContents, chunkNumber) {
+  if (chunkNumber <= 1) return [];
+  const chunks = listChunks(planContents);
+  const lines = planContents.split('\n');
+  const created = [];
+  for (const chunk of chunks) {
+    if (chunk.number >= chunkNumber) break;
+    const chunkLines = lines.slice(chunk.startLine - 1, chunk.endLine);
+    for (const line of chunkLines) {
+      const m = line.match(/^- Create:\s*`([^`]+)`/);
+      if (m) created.push(m[1]);
+    }
+  }
+  return created;
+}
+
 // Build the standing-rules preamble for a chunk.
-function buildPreamble(planPath, chunkNumber) {
+function buildPreamble(planPath, chunkNumber, planContents) {
   const path = require('path');
   const stem = path.basename(planPath, '.md');
   const obsName = `${stem}.observations.md`;
-  return [
+  const parts = [
     `## Sonnet assignment — Chunk ${chunkNumber} of ${planPath}`,
     '',
     'Work in the repo root containing this plan.',
@@ -73,7 +91,19 @@ function buildPreamble(planPath, chunkNumber) {
     `  - When done, append a "## Chunk ${chunkNumber} — <YYYY-MM-DD>" section to ${obsName} noting anything you saw but did not fix (out-of-scope smells, conventions that drifted, things the next chunk should know). Do NOT fix them — just note them.`,
     '  - When done, report what changed and what the user needs to test.',
     `  - Final step: move this chunk file into a "completed" subfolder within the chunks directory (create it if it doesn't exist). Example: \`mkdir -p chunks/completed && mv chunks/${stem}-chunk-${chunkNumber}.md chunks/completed/\``,
-  ].join('\n');
+  ];
+  // Surface files created by prior chunks so the executor knows they exist
+  if (planContents) {
+    const priorFiles = extractPriorCreatedFiles(planContents, chunkNumber);
+    if (priorFiles.length > 0) {
+      parts.push('');
+      parts.push('Prerequisite files (created by prior chunks — these exist on disk but are not in the original repo):');
+      for (const f of priorFiles) {
+        parts.push(`  - ${f}`);
+      }
+    }
+  }
+  return parts.join('\n');
 }
 
 // Filter the observations file contents to only include sections for chunks 1..(chunkNumber-1).
@@ -100,7 +130,7 @@ function filterPriorObservations(observationsContents, chunkNumber) {
 
 // Assemble the full Sonnet assignment for one chunk.
 function assembleAssignment({ planPath, planContents, chunkNumber, observations = '' }) {
-  const preamble = buildPreamble(planPath, chunkNumber);
+  const preamble = buildPreamble(planPath, chunkNumber, planContents);
   const header = extractPlanHeader(planContents);
   const body = extractChunkBody(planContents, chunkNumber);
   if (body == null) {
@@ -150,6 +180,7 @@ module.exports = {
   listChunks,
   extractPlanHeader,
   extractChunkBody,
+  extractPriorCreatedFiles,
   buildPreamble,
   filterPriorObservations,
   assembleAssignment,

@@ -42,6 +42,8 @@ Your spatial map. Scans all registered workspaces and builds a structured index 
 
 **Navigation** answers structural questions without grep: `--blast-radius` shows what depends on a file and what it imports, `--find` locates every occurrence of an identifier across all projects with line numbers, `--structure` returns function/class/interface definitions with line numbers, `--lookup` shows a file's exports, routes, and database references, and `--schema` returns database table structures.
 
+**Source extraction.** `--body <file> <name>` extracts a named function's source directly from the codebase — one call replaces a `--structure` lookup followed by a `Read`. `--section <file> script|template|style` extracts a named section from a Svelte file, giving a drift-proof alternative to hardcoded line-range reads. `--diff-symbols <file-a> <file-b>` compares definitions between two files, showing what's only in A, only in B, and in both — built for verifying extraction refactors without re-reading both files end to end.
+
 **Content search** (`grep.js`, `classify.js`) searches actual file content across all projects in one call, returning matches with surrounding context grouped by project. `classify.js` goes further — give it named regex variants and it categorizes every match by variant, tagging each hit with its direction: is this code making a request, defining a route, setting config, or just a comment? One command replaces the dozens of grep-then-read cycles that burn tokens and context window space. Built for migration audits, convention enforcement, and routing analysis across service boundaries.
 
 **Conversational aliases** let you say "show me the auth middleware" instead of remembering `lib/middleware/auth.js`. Aliases are preserved across re-scans. Auto-discovers new projects when you add workspace directories.
@@ -81,6 +83,37 @@ Both compile into `prefrontal-live.md`, which loads at session start. The more y
 ### Session Continuity — `/hello`, `/continue`, `/wrapup`
 
 The glue. `/wrapup` captures what you worked on, what files you touched, and where you left off — written to short-term recall and indexed by the Cerebral Cortex. `/continue` restores that context in a new session or after context compaction. `/hello` is the lightweight greeting that orients Claude on what happened recently. Together they make Claude feel like it remembers, even across sessions and machines if you sync the folders.
+
+### Region Toggles
+
+Every brain region can be individually enabled or disabled via `~/.claude/brain/config.json`. Regions default to enabled — only configure what you want to change.
+
+```json
+{
+  "regions": {
+    "dlpfc": false,
+    "prefrontal": {
+      "enabled": true,
+      "threshold": 75
+    },
+    "hippocampus": {
+      "enabled": true,
+      "features": {
+        "flow-graph": false,
+        "content-search": false
+      }
+    }
+  }
+}
+```
+
+- **`false`** disables a region entirely — its hooks won't fire, its tool-index sections won't load, its wrapup steps won't run.
+- **Object with `enabled: true`** keeps the region on but allows sub-feature toggles and settings.
+- **`threshold`** (prefrontal only) sets the minimum weight for behavioral rules to load into context.
+- **Sub-features** (hippocampus) disable specific tool sections like `flow-graph` and `content-search`.
+- **Absent regions default to enabled.** You only need entries for what you want to change.
+
+Toggles take effect on the next session start.
 
 ---
 

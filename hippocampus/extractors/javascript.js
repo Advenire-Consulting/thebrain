@@ -170,20 +170,23 @@ function extractDefinitions(content) {
       classStartDepth = braceDepth;
     }
 
-    const funcMatch = trimmed.match(/^(?:async\s+)?function\s+(\w+)\s*\(/);
+    // Handles: function foo(), async function foo(), export function foo(), export async function foo(), export default function foo()
+    const funcMatch = trimmed.match(/^(?:export\s+(?:default\s+)?)?(?:async\s+)?function\s+(\w+)\s*\(/);
     if (funcMatch) {
       defs.push({ name: funcMatch[1], type: 'function', line: i + 1 });
     }
 
     if (!funcMatch) {
-      const arrowMatch = trimmed.match(/^(?:const|let|var)\s+(\w+)\s*=\s*(?:async\s+)?(?:\([^)]*\)|[\w]+)\s*=>/);
+      // Handles: const foo = () =>, export const foo = () =>, export default arrow
+      const arrowMatch = trimmed.match(/^(?:export\s+(?:default\s+)?)?(?:const|let|var)\s+(\w+)\s*=\s*(?:async\s+)?(?:\([^)]*\)|[\w]+)\s*=>/);
       if (arrowMatch) {
         defs.push({ name: arrowMatch[1], type: 'arrow', line: i + 1 });
       }
     }
 
     if (!funcMatch) {
-      const exprMatch = trimmed.match(/^(?:const|let|var)\s+(\w+)\s*=\s*(?:async\s+)?function\s*\(/);
+      // Handles: const foo = function(), export const foo = function()
+      const exprMatch = trimmed.match(/^(?:export\s+(?:default\s+)?)?(?:const|let|var)\s+(\w+)\s*=\s*(?:async\s+)?function\s*\(/);
       if (exprMatch) {
         defs.push({ name: exprMatch[1], type: 'function', line: i + 1 });
       }

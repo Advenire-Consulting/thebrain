@@ -4,6 +4,7 @@ const {
   listChunks,
   extractPlanHeader,
   extractChunkBody,
+  extractPriorCreatedFiles,
   filterPriorObservations,
   assembleAssignment,
   computeDispatchPayloads,
@@ -227,4 +228,108 @@ test('computeDispatchPayloads returns empty array when no chunks present', () =>
     planContents: '# Empty plan\n\nNo chunks here.\n',
   });
   assert.equal(payloads.length, 0);
+});
+
+// --- Prerequisite files from prior chunks ---
+
+const PLAN_WITH_CREATES = [
+  '# Plan',
+  '',
+  '## Chunk 1 — Extract component',
+  '',
+  '**Touched files:**',
+  '- Create: `src/components/NewComponent.svelte`',
+  '- Modify: `src/components/OldComponent.svelte`',
+  '',
+  'Task body for chunk 1.',
+  '',
+  '## Chunk 2 — Add schema',
+  '',
+  '**Touched files:**',
+  '- Create: `src/components/AnotherNew.svelte`',
+  '- Modify: `features/routes.js`',
+  '',
+  'Task body for chunk 2.',
+  '',
+  '## Chunk 3 — Wire it up',
+  '',
+  '**Touched files:**',
+  '- Modify: `src/pages/App.svelte`',
+  '',
+  'Task body for chunk 3.',
+].join('\n');
+
+test('extractPriorCreatedFiles returns empty for chunk 1', () => {
+  assert.deepEqual(extractPriorCreatedFiles(PLAN_WITH_CREATES, 1), []);
+});
+
+test('extractPriorCreatedFiles returns chunk 1 creates for chunk 2', () => {
+  const files = extractPriorCreatedFiles(PLAN_WITH_CREATES, 2);
+  assert.deepEqual(files, ['src/components/NewComponent.svelte']);
+});
+
+test('extractPriorCreatedFiles accumulates creates from all prior chunks', () => {
+  const files = extractPriorCreatedFiles(PLAN_WITH_CREATES, 3);
+  assert.deepEqual(files, [
+    'src/components/NewComponent.svelte',
+    'src/components/AnotherNew.svelte',
+  ]);
+});
+
+test('extractPriorCreatedFiles returns empty when no prior chunks have creates', () => {
+  const plan = [
+    '# Plan',
+    '',
+    '## Chunk 1 — Modify only',
+    '',
+    '**Touched files:**',
+    '- Modify: `src/routes.js`',
+    '',
+    '## Chunk 2 — Also modify',
+    '',
+    '**Touched files:**',
+    '- Modify: `src/app.js`',
+  ].join('\n');
+  assert.deepEqual(extractPriorCreatedFiles(plan, 2), []);
+});
+
+test('assembleAssignment includes prerequisite files for chunk 2+', () => {
+  const out = assembleAssignment({
+    planPath: '/fake/plan.md',
+    planContents: PLAN_WITH_CREATES,
+    chunkNumber: 2,
+  });
+  assert.match(out, /Prerequisite files \(created by prior chunks/);
+  assert.match(out, /src\/components\/NewComponent\.svelte/);
+});
+
+test('assembleAssignment omits prerequisite section for chunk 1', () => {
+  const out = assembleAssignment({
+    planPath: '/fake/plan.md',
+    planContents: PLAN_WITH_CREATES,
+    chunkNumber: 1,
+  });
+  assert.doesNotMatch(out, /Prerequisite files/);
+});
+
+test('assembleAssignment omits prerequisite section when no prior creates exist', () => {
+  const plan = [
+    '# Plan',
+    '',
+    '## Chunk 1 — Modify only',
+    '',
+    '**Touched files:**',
+    '- Modify: `src/routes.js`',
+    '',
+    '## Chunk 2 — Also modify',
+    '',
+    '**Touched files:**',
+    '- Modify: `src/app.js`',
+  ].join('\n');
+  const out = assembleAssignment({
+    planPath: '/fake/plan.md',
+    planContents: plan,
+    chunkNumber: 2,
+  });
+  assert.doesNotMatch(out, /Prerequisite files/);
 });

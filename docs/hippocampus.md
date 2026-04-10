@@ -49,6 +49,9 @@ node $PLUGIN_ROOT/hippocampus/scripts/query.js <command>
 | `--lookup <file>` | Exports, routes, db refs, sensitivity |
 | `--find <identifier> [--project p]` | Every occurrence across all projects with line numbers |
 | `--structure <file> [--project p]` | Function/class/CSS definitions with line numbers |
+| `--body <file> <name> [--project p]` | Extract a named function body from source |
+| `--section <file> script\|template\|style [--project p]` | Extract a Svelte file section |
+| `--diff-symbols <file-a> <file-b> [--project p]` | Compare definitions between two files |
 | `--list-projects` | List all mapped projects with file counts |
 | `--list-aliases [--project p]` | Browse conversational aliases |
 | `--schema [--project p]` | Database table structures |
