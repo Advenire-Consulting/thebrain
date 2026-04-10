@@ -7,3 +7,4 @@ package-lock.json
 *.dir.json
 windows.json
 docs/benchmarks.md
+docs/superpowers/

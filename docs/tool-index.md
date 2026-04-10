@@ -157,13 +157,13 @@ dangling event subscribes, same-file double-emits, and dependency-order
 violations. Produces a two-section report (human summary + Claude-readable
 index) with line-range references for token-cheap follow-up reads.
 
-**2. Chunk extractor** — Reads a plan markdown file and emits a self-sufficient
-Sonnet assignment for one chunk. The output assembles a standing-rules preamble,
-the plan header (architecture decisions and context), prior agent observations
-(from the sibling `<plan-stem>.observations.md` file), and the chunk body.
-This is the standard handoff mechanism for executing plans — Sonnet sessions
-get their entire assignment from one shell command instead of from copy-pasted
-blocks.
+**2. Chunk extractor** — Reads a plan markdown file and emits self-sufficient
+Sonnet assignments for one chunk (or all chunks at once). Each assignment
+assembles a standing-rules preamble, the plan header (architecture decisions
+and context), prior agent observations (from the sibling
+`<plan-stem>.observations.md` file), and the chunk body. This is the standard
+handoff mechanism for executing plans — Sonnet sessions get their entire
+assignment from one short read instruction instead of from copy-pasted blocks.
 
     node thebrain-package/hippocampus/scripts/spec-check.js <command>
 
@@ -174,15 +174,17 @@ blocks.
 | `--strict` | Exit non-zero (2) if headerless docs are present. |
 | `--list-chunks <plan>` | List chunks in a plan with line ranges and line counts. |
 | `--chunk-range <plan> <n>` | Print `L<start>-L<end>` for one chunk. |
-| `--chunk-content <plan> <n>` | Print full Sonnet assignment for one chunk (preamble + plan header + prior observations + chunk body). |
+| `--chunk-content <plan> <n>` | Print full Sonnet assignment for one chunk to stdout (preamble + plan header + prior observations + chunk body). |
+| `--dispatch <plan>` | **Primary dispatch surface.** Write every chunk's assignment to `<plan-dir>/chunks/<plan-stem>-chunk-<N>.md` and append one short `Read <file> and execute it.` line per chunk to `~/claude/command-log.txt`. User copies one line per dispatch into a fresh executor session. |
 
 **When to use cross-check:** before invoking `writing-plans` on a new spec, to
 catch overlap with other in-flight or proposed work. Also useful when adding a
 new spec to an already-busy folder.
 
-**When to use chunk extractor:** every time you hand a plan chunk to a fresh
-Sonnet session. The single command replaces the old "copy block at the bottom
-of the plan" pattern.
+**When to use chunk extractor:** at plan execution time. Run `--dispatch` once
+per plan; the chunks/ sibling directory holds every assignment and the
+clipboard log holds one read-instruction per chunk for the user to paste into
+each fresh executor session.
 
 **Paths** are anything — the tool is layout-agnostic. Works on
 `docs/superpowers/specs/`, `docs/design/`, `planning/`, or anywhere else a
