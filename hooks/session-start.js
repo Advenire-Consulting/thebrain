@@ -14,7 +14,9 @@ const PFC_FILE = path.join(BRAIN_DIR, 'prefrontal-live.md');
 const PFC_CORTEX = path.join(BRAIN_DIR, 'prefrontal-cortex.md');
 const PFC_SIZE_FILE = path.join(BRAIN_DIR, '.pfc-loaded-size');
 const TOOL_INDEX_SRC = path.join(PLUGIN_ROOT, 'docs', 'tool-index.md');
-const TOOL_INDEX_DEST = path.join(HOME, '.claude', 'rules', 'brain-tools.md');
+// Derive rules dir from CLAUDE_CONFIG_DIR so clod writes to ~/.clod/rules/, not ~/.claude/rules/
+const CONFIG_DIR = process.env.CLAUDE_CONFIG_DIR || path.join(HOME, '.claude');
+const TOOL_INDEX_DEST = path.join(CONFIG_DIR, 'rules', 'brain-tools.md');
 
 function escapeForJson(s) {
   return s
@@ -38,8 +40,9 @@ function outputJson(content) {
 
 // Write resolved tool-index to ~/.claude/rules/ if source is newer or dest missing
 function buildRulesHeader() {
-  // Plugin root — always present so slash commands can resolve $PLUGIN_ROOT
-  var lines = [`<!-- PLUGIN_ROOT: ${PLUGIN_ROOT} -->`];
+  // Plugin root + config path — used to detect when a different instance needs a rewrite
+  var currentConfigPath = require(path.join(PLUGIN_ROOT, 'lib', 'config')).getConfigPath();
+  var lines = [`<!-- PLUGIN_ROOT: ${PLUGIN_ROOT} -->`, `<!-- BRAIN_CONFIG: ${currentConfigPath} -->`];
 
   // One-time migration notices — appear until their flag file exists
   var pfcRecoveryFlag = path.join(BRAIN_DIR, '.pfc-recovery-done');
@@ -92,7 +95,9 @@ function syncToolIndex() {
     if (!bodyNeedsRewrite) {
       existingContent = fs.readFileSync(TOOL_INDEX_DEST, 'utf-8');
       var rootMatch = existingContent.match(/<!-- PLUGIN_ROOT: (.+?) -->/);
-      if (!rootMatch || rootMatch[1] !== PLUGIN_ROOT) {
+      var configMatch = existingContent.match(/<!-- BRAIN_CONFIG: (.+?) -->/);
+      var currentConfigPath = require(path.join(PLUGIN_ROOT, 'lib', 'config')).getConfigPath();
+      if (!rootMatch || rootMatch[1] !== PLUGIN_ROOT || !configMatch || configMatch[1] !== currentConfigPath) {
         bodyNeedsRewrite = true;
       } else {
         var srcMtime = fs.statSync(TOOL_INDEX_SRC).mtimeMs;

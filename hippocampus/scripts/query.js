@@ -23,7 +23,12 @@ const dbPath = flag('--db');
 
 // Resolve a file path in the term index — returns { project, path } or exits
 function resolveFileInIndex(termDb, file, project) {
-  if (project) return { project, path: file };
+  // Strip project prefix if caller passed "drip/frontend/..." with --project drip
+  if (project) {
+    const prefix = project + '/';
+    const stripped = file.startsWith(prefix) ? file.slice(prefix.length) : file;
+    return { project, path: stripped };
+  }
   const allFiles = termDb.getAllFiles();
   let match = allFiles.find(f =>
     f.path === file || f.path.endsWith('/' + file) || path.basename(f.path) === file
@@ -265,9 +270,12 @@ switch (command) {
     const termDb = new TermDB(dbPath || undefined);
     try {
       if (project) {
-        const results = termDb.getStructure(project, file);
+        // Strip project prefix if caller passed "drip/frontend/..." with --project drip
+        const prefix = project + '/';
+        const lookupFile = file.startsWith(prefix) ? file.slice(prefix.length) : file;
+        const results = termDb.getStructure(project, lookupFile);
         if (results.length === 0) {
-          console.log(`No structure found for "${file}" in ${project}`);
+          console.log(`No structure found for "${lookupFile}" in ${project}`);
           process.exit(1);
         }
         printJson(results);

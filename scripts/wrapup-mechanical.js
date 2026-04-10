@@ -80,6 +80,18 @@ function main() {
     runStep('Trimming PFC...', path.join(THEBRAIN_DIR, 'cerebral-cortex-v2', 'scripts', 'pfc-trim.js'));
   }
 
+  // 1b. Trim old dated sections from project memory files
+  const configDir = process.env.CLAUDE_CONFIG_DIR || path.join(HOME, '.claude');
+  const memoryProjectsDir = path.join(configDir, 'projects', '-home-sonderbread-websites', 'memory', 'projects');
+  if (fs.existsSync(memoryProjectsDir)) {
+    console.log('Trimming project memory...');
+    try {
+      execFileSync('node', [path.join(THEBRAIN_DIR, 'scripts', 'trim-project-memory.js'), memoryProjectsDir], { stdio: 'inherit' });
+    } catch (err) {
+      console.error(`  Warning: trim-project-memory failed: ${err.message}`);
+    }
+  }
+
   // 2. Regenerate prefrontal decision gates from signals.db
   if (isRegionEnabled('prefrontal')) {
     runStep('Regenerating prefrontal...', path.join(THEBRAIN_DIR, 'scripts', 'generate-prefrontal.js'));

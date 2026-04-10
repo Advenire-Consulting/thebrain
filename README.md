@@ -115,6 +115,18 @@ Every brain region can be individually enabled or disabled via `~/.claude/brain/
 
 Toggles take effect on the next session start.
 
+### Multi-Instance Support
+
+Multiple Claude Code installations (e.g., a primary `claude` and a stripped-down `clod` executor) can share the same brain data while maintaining separate configurations. Each instance uses its own `CLAUDE_CONFIG_DIR` and `THEBRAIN_CONFIG` environment variables:
+
+- **Separate rules files** — each instance gets its own `brain-tools.md` with region stripping applied from its config. One instance disabling `cerebral-cortex-v2` won't strip those docs from the other's rules file.
+- **Shared brain data** — symlink `~/.clod/brain` → `~/.claude/brain` to share signals.db, recall.db, and hippocampus data without duplication.
+- **Live plugin source** — symlink the plugin cache entry to the source directory so code changes are immediately available to all instances without reinstalling.
+
+### Project Memory Trim
+
+Session wrapup appends dated log sections to project memory files (`memory/projects/<project>.md`). Over time these files grow large. The `trim-project-memory.js` script, run automatically during wrapup, archives sections older than 14 days to sibling `<project>-history.md` files. Reference sections (architecture, commands — anything without a `(YYYY-MM-DD)` date in the header) are always preserved. History files remain searchable via hippocampus grep.
+
 ---
 
 ## Token Savings
