@@ -6,11 +6,10 @@ const path = require('path');
 const Database = require('better-sqlite3');
 const { BRAIN_DIR, getDbPath } = require('./lessons');
 
+const { getRegionSetting } = require('../lib/config');
+
 const LINE_CAP = 120;
-const TIER_RULE = 75;
-const TIER_INCLINATION = 50;
-const TIER_ALWAYS_ON = 75;
-const TIER_PLANNING = 50;
+const threshold = getRegionSetting('prefrontal', 'threshold', 50);
 
 function getOutputPath() {
   return process.env.THEBRAIN_PFC_OUTPUT || path.join(BRAIN_DIR, 'prefrontal-live.md');
@@ -64,32 +63,36 @@ function generate() {
   const db = new Database(dbPath, { readonly: true });
   db.pragma('journal_mode = WAL');
 
-  const rules = getLessonsByTier(db, TIER_RULE);
+  const rules = getLessonsByTier(db, Math.max(75, threshold));
   if (rules.length > 0) {
     sections.push('## Behavioral Rules (75+)\n');
     sections.push(...rules);
     sections.push('');
   }
 
-  const inclinations = getLessonsByTier(db, TIER_INCLINATION, TIER_RULE);
-  if (inclinations.length > 0) {
-    sections.push('## Inclinations (50-74) — Strong defaults. Question if context demands it.\n');
-    sections.push(...inclinations);
-    sections.push('');
+  if (threshold <= 74) {
+    const inclinations = getLessonsByTier(db, Math.max(50, threshold), 75);
+    if (inclinations.length > 0) {
+      sections.push('## Inclinations (50-74) — Strong defaults. Question if context demands it.\n');
+      sections.push(...inclinations);
+      sections.push('');
+    }
   }
 
-  const forces = getForcesByTier(db, TIER_ALWAYS_ON);
+  const forces = getForcesByTier(db, Math.max(75, threshold));
   if (forces.length > 0) {
     sections.push('## Relational Forces — Always-on (75+)\n');
     sections.push(...forces);
     sections.push('');
   }
 
-  const planningForces = getForcesByTier(db, TIER_PLANNING, TIER_ALWAYS_ON);
-  if (planningForces.length > 0) {
-    sections.push('## Relational Forces — Planning-mode (50-74)\n');
-    sections.push(...planningForces);
-    sections.push('');
+  if (threshold <= 74) {
+    const planningForces = getForcesByTier(db, Math.max(50, threshold), 75);
+    if (planningForces.length > 0) {
+      sections.push('## Relational Forces — Planning-mode (50-74)\n');
+      sections.push(...planningForces);
+      sections.push('');
+    }
   }
 
   db.close();

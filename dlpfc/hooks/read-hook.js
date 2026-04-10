@@ -1,6 +1,9 @@
 #!/usr/bin/env node
 'use strict';
 
+const { isRegionEnabled } = require('../../lib/config');
+if (!isRegionEnabled('dlpfc')) process.exit(0);
+
 const fs = require('fs');
 const path = require('path');
 const os = require('os');

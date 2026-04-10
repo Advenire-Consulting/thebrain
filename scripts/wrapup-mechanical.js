@@ -23,38 +23,51 @@ function runStep(label, scriptPath) {
 }
 
 function main() {
+  const { isRegionEnabled, isFeatureEnabled } = require(path.join(THEBRAIN_DIR, 'lib', 'config'));
+
   // 0a. Re-scan hippocampus DIR files
-  runStep('Scanning hippocampus...', path.join(THEBRAIN_DIR, 'hippocampus', 'scripts', 'scan.js'));
+  if (isRegionEnabled('hippocampus')) {
+    runStep('Scanning hippocampus...', path.join(THEBRAIN_DIR, 'hippocampus', 'scripts', 'scan.js'));
+  }
 
   // 0b. Incremental term index scan
-  runStep('Updating term index...', path.join(THEBRAIN_DIR, 'hippocampus', 'scripts', 'term-scan-cli.js'));
+  if (isRegionEnabled('hippocampus')) {
+    runStep('Updating term index...', path.join(THEBRAIN_DIR, 'hippocampus', 'scripts', 'term-scan-cli.js'));
+  }
 
   // 0b-flow. Flow graph scan + cross-project resolution
-  const flowScanPath = path.join(THEBRAIN_DIR, 'hippocampus', 'scripts', 'flow-scan.js');
-  const flowResolvePath = path.join(THEBRAIN_DIR, 'hippocampus', 'scripts', 'flow-resolve.js');
-  if (fs.existsSync(flowScanPath)) {
-    console.log('Updating flow graph...');
-    try {
-      execFileSync('node', [flowScanPath], { stdio: 'inherit', timeout: 30000 });
-    } catch (err) {
-      console.error(`  Warning: flow-scan failed: ${err.message}`);
+  if (isFeatureEnabled('hippocampus', 'flow-graph')) {
+    const flowScanPath = path.join(THEBRAIN_DIR, 'hippocampus', 'scripts', 'flow-scan.js');
+    const flowResolvePath = path.join(THEBRAIN_DIR, 'hippocampus', 'scripts', 'flow-resolve.js');
+    if (fs.existsSync(flowScanPath)) {
+      console.log('Updating flow graph...');
+      try {
+        execFileSync('node', [flowScanPath], { stdio: 'inherit', timeout: 30000 });
+      } catch (err) {
+        console.error(`  Warning: flow-scan failed: ${err.message}`);
+      }
     }
-  }
-  if (fs.existsSync(flowResolvePath)) {
-    console.log('Resolving cross-project references...');
-    try {
-      execFileSync('node', [flowResolvePath], { stdio: 'inherit', timeout: 30000 });
-    } catch (err) {
-      console.error(`  Warning: flow-resolve failed: ${err.message}`);
+    if (fs.existsSync(flowResolvePath)) {
+      console.log('Resolving cross-project references...');
+      try {
+        execFileSync('node', [flowResolvePath], { stdio: 'inherit', timeout: 30000 });
+      } catch (err) {
+        console.error(`  Warning: flow-resolve failed: ${err.message}`);
+      }
     }
   }
 
-  // 0c. CC2 window scan + metadata extraction
-  runStep('Scanning CC2 windows...', path.join(THEBRAIN_DIR, 'cerebral-cortex-v2', 'scripts', 'scan.js'));
-  runStep('Extracting CC2 metadata...', path.join(THEBRAIN_DIR, 'cerebral-cortex-v2', 'scripts', 'extract.js'));
+  // 0c. CC2 window scan + metadata extraction + archival
+  if (isRegionEnabled('cerebral-cortex-v2')) {
+    runStep('Scanning CC2 windows...', path.join(THEBRAIN_DIR, 'cerebral-cortex-v2', 'scripts', 'scan.js'));
+    runStep('Extracting CC2 metadata...', path.join(THEBRAIN_DIR, 'cerebral-cortex-v2', 'scripts', 'extract.js'));
+    runStep('Archiving old conversations...', path.join(THEBRAIN_DIR, 'cerebral-cortex-v2', 'scripts', 'archive.js'));
+  }
 
   // 0d. dlPFC working memory — decay, reconcile references, generate output
-  runStep('Updating working memory (dlPFC)...', path.join(THEBRAIN_DIR, 'dlpfc', 'scripts', 'wrapup-step.js'));
+  if (isRegionEnabled('dlpfc')) {
+    runStep('Updating working memory (dlPFC)...', path.join(THEBRAIN_DIR, 'dlpfc', 'scripts', 'wrapup-step.js'));
+  }
 
   // 0e. One-time PFC summary recovery (backfills lost summaries into CC2)
   const pfcRecoveryFlag = path.join(BRAIN_DIR, '.pfc-recovery-done');
@@ -63,10 +76,14 @@ function main() {
   }
 
   // 1. Trim PFC entries and migrate overflow to CC2 recall.db
-  runStep('Trimming PFC...', path.join(THEBRAIN_DIR, 'cerebral-cortex-v2', 'scripts', 'pfc-trim.js'));
+  if (isRegionEnabled('prefrontal')) {
+    runStep('Trimming PFC...', path.join(THEBRAIN_DIR, 'cerebral-cortex-v2', 'scripts', 'pfc-trim.js'));
+  }
 
   // 2. Regenerate prefrontal decision gates from signals.db
-  runStep('Regenerating prefrontal...', path.join(THEBRAIN_DIR, 'scripts', 'generate-prefrontal.js'));
+  if (isRegionEnabled('prefrontal')) {
+    runStep('Regenerating prefrontal...', path.join(THEBRAIN_DIR, 'scripts', 'generate-prefrontal.js'));
+  }
 
   // 3. Clean up stale git briefing state files (older than 24 hours)
   const claudeDir = path.join(HOME, '.claude');

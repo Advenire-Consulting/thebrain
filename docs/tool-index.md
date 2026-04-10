@@ -8,6 +8,7 @@ Spatial awareness and long-term memory for code navigation and project history. 
 
 **Default routing:** When you need to understand code — what files exist, what they do, what depends on what, what the schema looks like — route through these tools before falling back to Grep/Glob/Read. They return structured, token-efficient results built from indexed data. Standard tools are the fallback for queries brain tools don't cover (see "When Standard Tools Are Shorter" below).
 
+<!-- region:hippocampus -->
 ## Hippocampus — Code Navigation (~150 tokens)
 
 ```
@@ -35,6 +36,8 @@ node $PLUGIN_ROOT/hippocampus/scripts/scan.js --dismiss <project> <file>
 node $PLUGIN_ROOT/hippocampus/scripts/scan.js --undismiss <project> <file>
 ```
 
+<!-- /region:hippocampus -->
+
 ## Project Memory (~200-500 tokens)
 
 Curated indexes for "when did we work on X?" and "what's the current state of X?"
@@ -42,6 +45,7 @@ Curated indexes for "when did we work on X?" and "what's the current state of X?
 - **Project files** — `~/.claude/projects/<workspace>/memory/projects/` — design decisions, dates, file locations
 - **Archived conversations** — `~/.claude/projects/<workspace>/memory/archived-memories/conversations.md` — session summaries with dates
 
+<!-- region:cerebral-cortex-v2 -->
 ## Cerebral Cortex v2 — Multi-level Recall
 
 Verbatim conversation recall — reasoning, rejected alternatives, the actual back-and-forth. Search results include decision digests so you can identify the right session before reading.
@@ -84,6 +88,9 @@ node $PLUGIN_ROOT/cerebral-cortex-v2/scripts/stopword-candidates.js --list
 ```
 Terms flagged as noise 5 times without a relevant hit are auto-promoted to the dynamic filter. A relevant hit resets the noise streak. Demote pulls a term back if search results degrade. Do this incrementally during normal CC2 usage — a few terms per session, not bulk.
 
+<!-- /region:cerebral-cortex-v2 -->
+
+<!-- region:hippocampus-content-search -->
 ## Hippocampus — Content Search (~variable tokens)
 
 Project-aware search tools that return matches with surrounding context in one call. Use these **instead of Grep+Read cycles** — they save significant tokens by returning context inline, grouped by project.
@@ -130,6 +137,9 @@ Config file format for reusable audits:
 
 **When to use:** Migration audits ("how much code uses the old pattern vs new?"), convention checks ("are all API calls going through the right base path?"), routing analysis ("which files construct URLs to this service and how?").
 
+<!-- /region:hippocampus-content-search -->
+
+<!-- region:hippocampus-flow-graph -->
 ## Hippocampus — Flow Graph (~100-300 tokens)
 
 AST-based code intelligence — traces data flow, middleware chains, database access, and cross-project dependencies.
@@ -147,6 +157,9 @@ node $PLUGIN_ROOT/hippocampus/scripts/flow.js <command>
 
 **When to use:** When you need to understand data flow ("where does req.company come from?"), middleware ordering ("what runs before my route?"), database access ("what tables does this file touch?"), or cross-project dependencies ("what calls this API endpoint?").
 
+<!-- /region:hippocampus-flow-graph -->
+
+<!-- region:spec-tools -->
 ## Spec / Plan Cross-Check + Chunk Extractor (~variable tokens)
 
 Two surfaces in one tool:
@@ -193,6 +206,8 @@ project parks its design docs.
 **Id rule:** every doc is identified by its filename stem (basename without
 `.md`). No separate `spec:` field in the frontmatter. Cross-references in
 `depends_on` and `implements` use the filename stem directly.
+
+<!-- /region:spec-tools -->
 
 ## What Answers What
 

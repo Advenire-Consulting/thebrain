@@ -12,6 +12,9 @@
  * Exit 2 = block (RED sensitivity — database files, secrets, project roots)
  */
 
+const { isRegionEnabled, isFeatureEnabled } = require('../lib/config');
+if (!isRegionEnabled('hypothalamus')) process.exit(0);
+
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
@@ -210,6 +213,7 @@ function handleEdit(toolInput, dirs, websitesRoot, config, sessionId, stateDir) 
   }
 
   // Blast radius for non-sensitive files
+  if (!isFeatureEnabled('hypothalamus', 'blast-radius')) process.exit(0);
   const relativePath = path.relative(websitesRoot, filePath);
   const { getBlastRadius } = require('../hippocampus/lib/dir-loader');
 

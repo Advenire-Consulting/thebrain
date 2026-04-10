@@ -56,6 +56,27 @@ function buildRulesHeader() {
   return lines.join('\n') + '\n\n';
 }
 
+// Strip disabled region blocks from tool-index content
+function stripDisabledRegions(content) {
+  const { isRegionEnabled, isFeatureEnabled } = require(path.join(PLUGIN_ROOT, 'lib', 'config'));
+  const regionPattern = /<!-- region:([\w-]+) -->([\s\S]*?)<!-- \/region:\1 -->\n?/g;
+
+  return content.replace(regionPattern, (match, regionKey) => {
+    // Sub-region markers like 'hippocampus-flow-graph' check parent + feature
+    const dashIdx = regionKey.indexOf('-');
+    // Known top-level regions — anything else with a dash is a sub-region
+    const topLevel = ['cerebral-cortex-v2', 'spec-tools'];
+    if (dashIdx !== -1 && !topLevel.includes(regionKey)) {
+      const parent = regionKey.slice(0, dashIdx);
+      const feature = regionKey.slice(dashIdx + 1);
+      if (!isRegionEnabled(parent) || !isFeatureEnabled(parent, feature)) return '';
+    } else {
+      if (!isRegionEnabled(regionKey)) return '';
+    }
+    return match;
+  });
+}
+
 function syncToolIndex() {
   if (!fs.existsSync(TOOL_INDEX_SRC)) return;
   try {
@@ -78,11 +99,20 @@ function syncToolIndex() {
         var destMtime = fs.statSync(TOOL_INDEX_DEST).mtimeMs;
         if (srcMtime > destMtime) bodyNeedsRewrite = true;
       }
+
+      // Also rewrite if config regions may have changed
+      if (!bodyNeedsRewrite) {
+        try {
+          var configMtime = fs.statSync(require(path.join(PLUGIN_ROOT, 'lib', 'config')).getConfigPath()).mtimeMs;
+          if (configMtime > destMtime) bodyNeedsRewrite = true;
+        } catch { /* no config = no regions to strip */ }
+      }
     }
 
     if (bodyNeedsRewrite) {
-      // Full rewrite — resolve $PLUGIN_ROOT placeholders in source
+      // Full rewrite — resolve $PLUGIN_ROOT placeholders and strip disabled regions
       var content = fs.readFileSync(TOOL_INDEX_SRC, 'utf-8');
+      content = stripDisabledRegions(content);
       content = content.replace(/\$PLUGIN_ROOT/g, PLUGIN_ROOT);
       fs.writeFileSync(TOOL_INDEX_DEST, header + content);
     } else {
@@ -142,7 +172,8 @@ function main() {
   syncToolIndex();
 
   // Regenerate prefrontal if stale or missing
-  if (fs.existsSync(SIGNALS_DB)) {
+  const { isRegionEnabled: isRegEnabled } = require(path.join(PLUGIN_ROOT, 'lib', 'config'));
+  if (isRegEnabled('prefrontal') && fs.existsSync(SIGNALS_DB)) {
     let shouldRegenerate = !fs.existsSync(PFC_FILE);
     if (!shouldRegenerate) {
       const dbMtime = fs.statSync(SIGNALS_DB).mtimeMs;
@@ -159,7 +190,7 @@ function main() {
   }
 
   // Record PFC file size
-  if (fs.existsSync(BRAIN_DIR)) {
+  if (isRegEnabled('prefrontal') && fs.existsSync(BRAIN_DIR)) {
     try {
       if (fs.existsSync(PFC_CORTEX)) {
         const size = fs.statSync(PFC_CORTEX).size;
@@ -220,13 +251,15 @@ function main() {
       parts.push('');
     }
 
-    parts.push('# Prefrontal — Decision Gates');
-    parts.push('');
+    if (isRegEnabled('prefrontal')) {
+      parts.push('# Prefrontal — Decision Gates');
+      parts.push('');
 
-    if (fs.existsSync(PFC_FILE)) {
-      parts.push(fs.readFileSync(PFC_FILE, 'utf-8').trimEnd());
-    } else {
-      parts.push('*No prefrontal-live.md found. Run setup to populate.*');
+      if (fs.existsSync(PFC_FILE)) {
+        parts.push(fs.readFileSync(PFC_FILE, 'utf-8').trimEnd());
+      } else {
+        parts.push('*No prefrontal-live.md found. Run setup to populate.*');
+      }
     }
 
     // Tool index is loaded via ~/.claude/rules/brain-tools.md (synced by syncToolIndex above)
@@ -240,7 +273,7 @@ function main() {
   // to keep hook output compact. Self-healing mechanism.
   const MAX_OUTPUT_BYTES = 8000;
   const output = parts.join('\n');
-  if (Buffer.byteLength(output, 'utf-8') > MAX_OUTPUT_BYTES) {
+  if (isRegEnabled('prefrontal') && Buffer.byteLength(output, 'utf-8') > MAX_OUTPUT_BYTES) {
     process.stderr.write(`TheBrain: session-start output is ${Buffer.byteLength(output, 'utf-8')} bytes (>${MAX_OUTPUT_BYTES}). Auto-summarizing prefrontal.\n`);
     // Check if any lessons/forces are missing summaries — that's the likely cause
     try {

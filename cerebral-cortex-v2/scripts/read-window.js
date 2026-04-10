@@ -13,59 +13,35 @@
 
 const fs = require('fs');
 const path = require('path');
-const readline = require('readline');
 
 const { loadConfig } = require('../../lib/config');
+const { readWindow, compactMessages } = require('../lib/reader');
 const CONV_DIRS = loadConfig().conversationDirs;
 
-// From conversation-explorer: strip XML noise from user messages
-function cleanUserText(content) {
-  let text = '';
-  if (typeof content === 'string') {
-    text = content;
-  } else if (Array.isArray(content)) {
-    text = content
-      .filter(b => b.type === 'text')
-      .map(b => b.text)
-      .join('');
-  }
-  text = text.replace(/<command-message>[\s\S]*?<\/command-message>\s*/g, '');
-  text = text.replace(/<command-name>[\s\S]*?<\/command-name>\s*/g, '');
-  text = text.replace(/<system-reminder>[\s\S]*?<\/system-reminder>\s*/g, '');
-  text = text.replace(/<local-command-caveat>[\s\S]*?<\/local-command-caveat>\s*/g, '');
-  text = text.replace(/<local-command-stdout>[\s\S]*?<\/local-command-stdout>\s*/g, '');
-  text = text.replace(/<command-args>[\s\S]*?<\/command-args>\s*/g, '');
-  return text.trim();
-}
+// Load archived messages for a window when JSONL is missing
+function loadArchivedMessages(sessionPrefix, seq) {
+  try {
+    const { RecallDB, DEFAULT_RECALL_DB_PATH } = require('../lib/db');
+    const db = new RecallDB(DEFAULT_RECALL_DB_PATH);
+    const tableExists = db.db.prepare(
+      "SELECT 1 FROM sqlite_master WHERE type='table' AND name='archived_messages'"
+    ).get();
+    if (!tableExists) { db.close(); return null; }
 
-// From conversation-explorer: extract only text blocks from assistant content
-function extractAssistantText(contentArray) {
-  if (!Array.isArray(contentArray)) return '';
-  return contentArray
-    .filter(b => b.type === 'text')
-    .map(b => b.text)
-    .join('')
-    .trim();
-}
+    const winRow = db.db.prepare(
+      'SELECT w.id FROM windows w WHERE w.session_id LIKE ? AND w.seq = ?'
+    ).get(sessionPrefix + '%', seq);
+    if (!winRow) { db.close(); return null; }
 
-// Skip non-conversational user messages
-function isConversational(text) {
-  if (!text || text.length === 0) return false;
-  if (text === '[Request interrupted by user for tool use]') return false;
-  if (text === '[Request interrupted by user]') return false;
-  const skipPrefixes = [
-    'Start-of-session greeting',
-    'End-of-session goodnight',
-    'End-of-work wrap up',
-    'Resume a project or workspace',
-    'Base directory for this skill:',
-    'Implement the following plan:',
-    'This session is being continued from a previous conversation',
-  ];
-  for (const prefix of skipPrefixes) {
-    if (text.startsWith(prefix)) return false;
+    const row = db.db.prepare(
+      'SELECT messages FROM archived_messages WHERE window_id = ?'
+    ).get(winRow.id);
+    db.close();
+    if (!row) return null;
+    return JSON.parse(row.messages);
+  } catch {
+    return null;
   }
-  return true;
 }
 
 // Resolve session prefix to JSONL file
@@ -94,166 +70,6 @@ function getWindowRange(sessionPrefix, seq) {
     }
   }
   return null;
-}
-
-async function readWindow(filePath, startLine, endLine) {
-  const rl = readline.createInterface({
-    input: fs.createReadStream(filePath),
-    crlfDelay: Infinity,
-  });
-
-  const rawMessages = [];
-  let lineNumber = 0;
-
-  for await (const line of rl) {
-    const ln = lineNumber++;
-    if (ln < startLine) continue;
-    if (ln > endLine) break;
-    if (!line.trim()) continue;
-
-    let obj;
-    try { obj = JSON.parse(line); } catch { continue; }
-
-    const type = obj.type;
-    if (type === 'user') {
-      const content = obj.message?.content;
-      const text = cleanUserText(content);
-      const timestamp = obj.timestamp;
-      if (isConversational(text)) {
-        rawMessages.push({ ln, type: 'user', text, timestamp });
-      }
-    } else if (type === 'assistant') {
-      const content = obj.message?.content;
-      const text = extractAssistantText(content || []);
-      const timestamp = obj.timestamp;
-      const requestId = obj.requestId || obj.uuid;
-
-      // Detect Skill and Agent tool_use blocks for activity labeling
-      const activities = [];
-      if (Array.isArray(content)) {
-        for (const block of content) {
-          if (block.type === 'tool_use' && block.name === 'Skill') {
-            activities.push({ kind: 'skill', name: block.input?.skill || '?' });
-          } else if (block.type === 'tool_use' && block.name === 'Agent') {
-            activities.push({ kind: 'agent', name: block.input?.description || '?' });
-          }
-        }
-      }
-
-      if (text || activities.length > 0) {
-        rawMessages.push({ ln, type: 'assistant', text: text || '', timestamp, requestId, activities });
-      }
-    }
-  }
-
-  // Merge assistant chunks by requestId (same as conversation-explorer)
-  const merged = new Map();
-  for (const msg of rawMessages) {
-    if (msg.type === 'assistant' && msg.requestId) {
-      if (merged.has(msg.requestId)) {
-        const existing = merged.get(msg.requestId);
-        if (msg.text) {
-          existing.text = existing.text ? existing.text + '\n\n' + msg.text : msg.text;
-        }
-        if (msg.activities?.length) {
-          existing.activities = (existing.activities || []).concat(msg.activities);
-        }
-        existing.ln = msg.ln;
-      } else {
-        merged.set(msg.requestId, { ...msg });
-      }
-    }
-  }
-
-  // Build final ordered list
-  const seen = new Set();
-  const messages = [];
-  for (const msg of rawMessages) {
-    if (msg.type === 'user') {
-      messages.push(msg);
-    } else if (msg.type === 'assistant' && msg.requestId && !seen.has(msg.requestId)) {
-      seen.add(msg.requestId);
-      const m = merged.get(msg.requestId);
-      if (m && m.text) messages.push(m);
-    }
-  }
-
-  return messages;
-}
-
-// Compact mode: user messages full, first Claude response after each user kept,
-// consecutive Claude messages collapsed with skip indicator + line range for drill-down.
-function compactMessages(messages) {
-  const output = [];
-  let i = 0;
-
-  while (i < messages.length) {
-    const msg = messages[i];
-
-    if (msg.type === 'user') {
-      output.push(msg);
-      i++;
-      // Include the first assistant response after this user message
-      if (i < messages.length && messages[i].type === 'assistant') {
-        output.push(messages[i]);
-        i++;
-        // Collapse any consecutive assistant messages, collecting activity labels
-        let skippedCount = 0;
-        let firstSkippedLine = null;
-        let lastSkippedLine = null;
-        const activities = [];
-        while (i < messages.length && messages[i].type === 'assistant') {
-          if (firstSkippedLine === null) firstSkippedLine = messages[i].ln;
-          lastSkippedLine = messages[i].ln;
-          if (messages[i].activities) {
-            for (const a of messages[i].activities) activities.push(a);
-          }
-          skippedCount++;
-          i++;
-        }
-        if (skippedCount > 0) {
-          output.push({
-            type: 'skip',
-            count: skippedCount,
-            startLine: firstSkippedLine,
-            endLine: lastSkippedLine,
-            activities,
-          });
-        }
-      }
-    } else if (msg.type === 'assistant') {
-      // Assistant message with no preceding user message (start of window)
-      output.push(msg);
-      i++;
-      // Collapse followups
-      let skippedCount = 0;
-      let firstSkippedLine = null;
-      let lastSkippedLine = null;
-      const activities = [];
-      while (i < messages.length && messages[i].type === 'assistant') {
-        if (firstSkippedLine === null) firstSkippedLine = messages[i].ln;
-        lastSkippedLine = messages[i].ln;
-        if (messages[i].activities) {
-          for (const a of messages[i].activities) activities.push(a);
-        }
-        skippedCount++;
-        i++;
-      }
-      if (skippedCount > 0) {
-        output.push({
-          type: 'skip',
-          count: skippedCount,
-          startLine: firstSkippedLine,
-          endLine: lastSkippedLine,
-          activities,
-        });
-      }
-    } else {
-      i++;
-    }
-  }
-
-  return output;
 }
 
 async function main() {
@@ -346,19 +162,27 @@ async function main() {
       }
 
       const decFilePath = resolveFile(sessionPrefix);
-      if (!decFilePath) {
-        console.error('No JSONL file found');
-        db.close();
-        process.exit(1);
+      let messages;
+
+      if (decFilePath) {
+        messages = await readWindow(decFilePath, readStart, target.end_line);
+      } else {
+        // JSONL missing — try archived content
+        const archived = loadArchivedMessages(sessionPrefix, seq);
+        if (!archived) {
+          console.log('Conversation content not available for this decision (JSONL expired, no archive).');
+          db.close();
+          process.exit(0);
+        }
+        messages = archived.filter(m => m.ln >= readStart && m.ln <= target.end_line);
       }
 
       const mode = decisionWhy ? 'decision + reasoning' : 'decision';
+      const sourceLabel = decFilePath ? '' : ' | archived';
       console.log(`Session: ${winRow.session_id.slice(0, 8)}...`);
-      console.log(`Window: seq ${seq} | Decision ${decisionNum} | lines ${readStart}-${target.end_line} | ${mode}`);
+      console.log(`Window: seq ${seq} | Decision ${decisionNum} | lines ${readStart}-${target.end_line} | ${mode}${sourceLabel}`);
       console.log(`Decision: ${target.summary}`);
       console.log('='.repeat(60));
-
-      const messages = await readWindow(decFilePath, readStart, target.end_line);
       const output = fullMode ? messages : compactMessages(messages);
 
       for (const msg of output) {
@@ -377,9 +201,55 @@ async function main() {
   }
 
   const filePath = resolveFile(sessionPrefix);
+
   if (!filePath) {
-    console.error(`No JSONL file found for session prefix: ${sessionPrefix}`);
-    process.exit(1);
+    // JSONL missing — try archived content
+    const range = getWindowRange(sessionPrefix, seq);
+    if (!range) {
+      console.error(`Window seq ${seq} not found for session ${sessionPrefix}`);
+      process.exit(1);
+    }
+
+    const archived = loadArchivedMessages(sessionPrefix, seq);
+    if (!archived) {
+      console.log('Conversation content not available for this window (JSONL expired, no archive).');
+      process.exit(0);
+    }
+
+    // Filter by focus range if specified
+    let messages = archived;
+    if (focusStart != null || focusEnd != null) {
+      const fStart = focusStart != null ? focusStart : range.start;
+      const fEnd = focusEnd != null ? focusEnd : range.end;
+      messages = archived.filter(m => m.ln >= fStart && m.ln <= fEnd);
+    }
+
+    const output = fullMode ? messages : compactMessages(messages);
+
+    console.log(`Session: ${sessionPrefix}... (archived)`);
+    console.log(`Window: seq ${seq} | lines ${range.start}-${range.end} | ${fullMode ? 'full' : 'compact'} | archived`);
+    console.log(`Messages: ${messages.length} total${!fullMode ? `, ${output.filter(m => m.type !== 'skip').length} shown` : ''}`);
+    console.log('='.repeat(60));
+
+    for (const msg of output) {
+      if (msg.type === 'skip') {
+        let label = `${msg.count} Claude messages skipped`;
+        if (msg.activities && msg.activities.length > 0) {
+          const skills = [...new Set(msg.activities.filter(a => a.kind === 'skill').map(a => a.name))];
+          const agents = msg.activities.filter(a => a.kind === 'agent').map(a => a.name);
+          const parts = [];
+          if (skills.length) parts.push(skills.join(', '));
+          if (agents.length) parts.push(agents.join(', '));
+          label += ` (${parts.join(' → ')})`;
+        }
+        console.log(`\n  [...${label} — lines ${msg.startLine}-${msg.endLine}]`);
+      } else {
+        const role = msg.type === 'user' ? 'Human' : 'Claude';
+        console.log(`\n[${role}] (line ${msg.ln})`);
+        console.log(msg.text);
+      }
+    }
+    return;
   }
 
   // Get window range from index, then optionally narrow by focus
@@ -407,7 +277,6 @@ async function main() {
     if (msg.type === 'skip') {
       let label = `${msg.count} Claude messages skipped`;
       if (msg.activities.length > 0) {
-        // Group by kind and deduplicate
         const skills = [...new Set(msg.activities.filter(a => a.kind === 'skill').map(a => a.name))];
         const agents = msg.activities.filter(a => a.kind === 'agent').map(a => a.name);
         const parts = [];

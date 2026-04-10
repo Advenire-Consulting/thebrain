@@ -17,14 +17,19 @@ Persistent store of two types of behavioral data:
 - Always-on (75+): active in every interaction
 - Planning-mode (50-74): active during design and brainstorming
 
-### Prefrontal Generator (`scripts/generate-prefrontal.py`)
+### Prefrontal Generator (`scripts/generate-prefrontal.js`)
 
 Reads signals.db and produces `~/.claude/brain/prefrontal-live.md` — loaded at session start. Contains:
 
 1. **Rules (75-100)** — non-negotiable behavioral constraints
 2. **Inclinations (50-74)** — strong defaults that can be overridden with stated reasoning
 3. **Relational forces** — working style, communication preferences
-4. **Tool selection protocol** — which tools to prefer for which tasks
+
+The threshold for which tiers load is configurable via `config.json`:
+```json
+{ "regions": { "prefrontal": { "enabled": true, "threshold": 75 } } }
+```
+Default is `50` (all tiers). Setting `75` skips Inclinations and Planning-mode forces.
 
 ## Key Scripts
 

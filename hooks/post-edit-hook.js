@@ -3,17 +3,26 @@
 
 const fs = require('fs');
 const path = require('path');
-const { TermDB } = require('../hippocampus/lib/term-db');
-const { scanSingleFile } = require('../hippocampus/lib/term-scanner');
-const { loadExtractors } = require('../hippocampus/lib/extractor-registry');
-const extractorRegistry = loadExtractors(path.join(__dirname, '../hippocampus/extractors'));
+const { isRegionEnabled, isFeatureEnabled } = require('../lib/config');
 const { loadAllDIR } = require('../hippocampus/lib/dir-loader');
+
+// Lazy-load hippocampus modules only when region is enabled
+let TermDB, scanSingleFile, extractorRegistry;
+if (isRegionEnabled('hippocampus')) {
+  TermDB = require('../hippocampus/lib/term-db').TermDB;
+  scanSingleFile = require('../hippocampus/lib/term-scanner').scanSingleFile;
+  const { loadExtractors } = require('../hippocampus/lib/extractor-registry');
+  extractorRegistry = loadExtractors(path.join(__dirname, '../hippocampus/extractors'));
+}
+
 let WorkingMemoryDB, bumpFileDlpfc;
-try {
-  WorkingMemoryDB = require('../dlpfc/lib/db').WorkingMemoryDB;
-  bumpFileDlpfc = require('../dlpfc/lib/tracker').bumpFile;
-} catch {
-  // dlPFC not yet installed — skip silently
+if (isRegionEnabled('dlpfc')) {
+  try {
+    WorkingMemoryDB = require('../dlpfc/lib/db').WorkingMemoryDB;
+    bumpFileDlpfc = require('../dlpfc/lib/tracker').bumpFile;
+  } catch {
+    // dlPFC not yet installed — skip silently
+  }
 }
 
 /**
@@ -138,30 +147,36 @@ if (require.main === module) {
 
   if (!matchedProject) process.exit(0);
 
-  const db = new TermDB();
-  try { updateSingleFile(db, filePath, matchedProject, projectDir); }
-  finally { db.close(); }
+  // Hippocampus: term index + DIR update
+  if (isRegionEnabled('hippocampus')) {
+    const db = new TermDB();
+    try { updateSingleFile(db, filePath, matchedProject, projectDir); }
+    finally { db.close(); }
 
-  // Update flow graph for edited file
-  try {
-    const flowScanPath = path.join(__dirname, '../hippocampus/scripts/flow-scan.js');
-    if (fs.existsSync(flowScanPath)) {
-      const relativeToProject = path.relative(projectDir, filePath);
-      const { execFileSync } = require('child_process');
-      execFileSync('node', [flowScanPath, '--file', matchedProject, relativeToProject], {
-        timeout: 10000,
-        stdio: 'pipe',
-      });
-    }
-  } catch (err) {
-    process.stderr.write(`[post-edit] Flow scan failed: ${err.message}\n`);
+    updateDIREntry(filePath, projectDir, matchedProject, hippocampusDir);
   }
 
-  updateDIREntry(filePath, projectDir, matchedProject, hippocampusDir);
+  // Flow graph update
+  if (isFeatureEnabled('hippocampus', 'flow-graph')) {
+    try {
+      const flowScanPath = path.join(__dirname, '../hippocampus/scripts/flow-scan.js');
+      if (fs.existsSync(flowScanPath)) {
+        const relativeToProject = path.relative(projectDir, filePath);
+        const { execFileSync } = require('child_process');
+        execFileSync('node', [flowScanPath, '--file', matchedProject, relativeToProject], {
+          timeout: 10000,
+          stdio: 'pipe',
+        });
+      }
+    } catch (err) {
+      process.stderr.write(`[post-edit] Flow scan failed: ${err.message}\n`);
+    }
+  }
+
   resetHypothalamusWarning(sessionId, filePath);
 
   // Bump dlPFC working memory if available
-  if (WorkingMemoryDB && bumpFileDlpfc) {
+  if (isRegionEnabled('dlpfc') && WorkingMemoryDB && bumpFileDlpfc) {
     try {
       const wmDb = new WorkingMemoryDB();
       const relativeToProject = path.relative(projectDir, filePath);

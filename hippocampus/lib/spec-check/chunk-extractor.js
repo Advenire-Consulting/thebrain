@@ -68,9 +68,11 @@ function buildPreamble(planPath, chunkNumber) {
     '  - Do NOT restart services. The user verifies behavior themselves.',
     '  - Do NOT commit. The user handles all commits.',
     '  - Do NOT modify any file not listed in your chunk\'s "Touched files" section. No drive-by refactors.',
+    '  - Line numbers in "Read first" may have shifted if prior chunks modified these files. Run `node thebrain-package/hippocampus/scripts/query.js --structure <file>` to get current function/definition line numbers before reading.',
     '  - Read any prior agent observations below before starting — they flag compounding issues you should account for.',
     `  - When done, append a "## Chunk ${chunkNumber} — <YYYY-MM-DD>" section to ${obsName} noting anything you saw but did not fix (out-of-scope smells, conventions that drifted, things the next chunk should know). Do NOT fix them — just note them.`,
     '  - When done, report what changed and what the user needs to test.',
+    `  - Final step: move this chunk file into a "completed" subfolder within the chunks directory (create it if it doesn't exist). Example: \`mkdir -p chunks/completed && mv chunks/${stem}-chunk-${chunkNumber}.md chunks/completed/\``,
   ].join('\n');
 }
 

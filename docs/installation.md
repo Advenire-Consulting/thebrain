@@ -77,12 +77,62 @@ Configure workspaces in `~/.claude/brain/config.json`.
 The brain tool reference is installed as a user-level rules file at `~/.claude/rules/brain-tools.md`. This is auto-maintained by the session-start hook — when `docs/tool-index.md` changes in the plugin, the hook detects the change and rewrites the resolved rules file on the next session start.
 
 All mutable state lives in `~/.claude/brain/`:
-- `config.json` — workspace roots and conversation directories
+- `config.json` — workspace roots, conversation directories, and region toggles
 - `signals.db` — behavioral lessons and relational forces
 - `recall.db` — conversation index
 - `hippocampus/` — project DIR files and term index
 - `prefrontal-cortex.md` — short-term recall
 - `prefrontal-live.md` — generated decision gates
+
+## Region Toggles
+
+Every brain region can be disabled or configured via `~/.claude/brain/config.json`. This controls what loads at session start, what runs during wrapup, and what hooks fire on tool use.
+
+### Config Shape
+
+The `regions` key accepts three shapes per region:
+
+```json
+{
+  "regions": {
+    "dlpfc": false,
+    "hypothalamus": { "enabled": true, "features": { "blast-radius": false } },
+    "prefrontal": { "enabled": true, "threshold": 75 }
+  }
+}
+```
+
+- **Absent** — region is fully enabled (default)
+- **`false`** — region is fully disabled (hooks exit early, wrapup skips steps, tool-index section stripped)
+- **Object** — `enabled` controls the region, `features` toggles sub-capabilities
+
+### Available Regions
+
+| Region | What disabling does |
+|--------|-------------------|
+| `hippocampus` | Skips DIR scan, term index, post-edit updates |
+| `cerebral-cortex-v2` | Skips CC2 scan, extract, archival |
+| `hypothalamus` | Disables blast-radius and bash-guard hooks |
+| `dlpfc` | Disables read-tracking and working memory |
+| `prefrontal` | Skips PFC loading, generation, and size guard |
+| `spec-tools` | Strips spec/plan tooling from tool-index |
+
+### Feature Toggles
+
+Sub-region features use `hippocampus-<feature>` naming in tool-index markers:
+
+| Feature | Parent | What it controls |
+|---------|--------|-----------------|
+| `content-search` | hippocampus | grep.js and classify.js docs |
+| `flow-graph` | hippocampus | Flow scan, resolve, and post-edit flow updates |
+| `blast-radius` | hypothalamus | Blast radius analysis on edits (sensitivity checks still active) |
+
+### Prefrontal Threshold
+
+The `threshold` setting on the prefrontal region controls which tier of lessons loads:
+
+- `50` (default) — loads Rules (75+), Inclinations (50-74), and both force tiers
+- `75` — loads only Rules (75+) and Always-on forces, skipping Inclinations and Planning-mode forces
 
 ## Troubleshooting
 

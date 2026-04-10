@@ -9,7 +9,8 @@ Long-term conversation recall. Indexes Claude Code session transcripts into sear
 3. **Detects decisions** within each window using the Read→discussion→Write/Edit heuristic, storing decision markers with terms, file anchors, and status
 4. **Searches** past conversations by cluster-scored queries with trust decay, showing per-window decision digests in results
 5. **Reads** window content at multiple zoom levels: digest (decisions only, ~200 tokens), decision-scoped (single decision block), compact (full conversation minus tools), full
-6. **Pairs** PFC session summaries to windows when entries are trimmed from short-term recall. Mechanical summaries fill the gap for windows without PFC entries.
+6. **Archives** conversation content from JSONL files older than 25 days into `recall.db`, enabling reads after Claude Code's ~30-day JSONL expiry
+7. **Pairs** PFC session summaries to windows when entries are trimmed from short-term recall. Mechanical summaries fill the gap for windows without PFC entries.
 
 ## Key Files
 
@@ -19,6 +20,7 @@ Long-term conversation recall. Indexes Claude Code session transcripts into sear
 | `lib/db.js` | RecallDB class — SQLite schema for windows, terms, files, projects, summaries |
 | `lib/extractor.js` | Reads JSONL line ranges, extracts terms + file refs + project frequencies |
 | `lib/decision-detector.js` | Detects decision blocks: Read→discussion→Write/Edit pattern, parked topics, compaction seam linking |
+| `lib/reader.js` | Shared JSONL reader — cleanUserText, readWindow, compactMessages (used by read-window.js and archive.js) |
 | `lib/search.js` | Cluster-scored search with trust decay, project/file boost, focus ranges |
 | `lib/stopwords.js` | Tokenizer + 3-tier stopword filter (light/medium/heavy) |
 | `windows.json` | Window index — 228 windows across 149 sessions |
@@ -32,6 +34,7 @@ Long-term conversation recall. Indexes Claude Code session transcripts into sear
 | `scripts/read-window.js` | Window reader — compact, digest, or decision-scoped reads |
 | `scripts/scan.js` | Rebuild `windows.json` from all JSONL files |
 | `scripts/extract.js` | Rebuild `recall.db` metadata + decisions + summaries from windows + JSONL files |
+| `scripts/archive.js` | Archive conversations >25 days old into `recall.db` before JSONL expiry |
 
 ## Search
 
@@ -73,6 +76,22 @@ Four read modes, from cheapest to most expensive:
 | Full | `--full` | ~10K+ | All user + assistant text, tool blocks still stripped. |
 
 **Intended workflow:** Search → pick session → `--digest` to see decisions → `--decision N` to read just what you need.
+
+## Conversation Archival
+
+Claude Code deletes JSONL session transcripts after ~30 days. The archive system preserves conversation content before expiry.
+
+**How it works:**
+1. `archive.js` runs during wrapup (after CC2 extract)
+2. Scans all indexed windows, finds sessions with JSONL files older than 25 days
+3. Reads each window's content using `reader.js` and stores the rendered messages in the `archived_messages` table
+4. `read-window.js` automatically falls back to archived content when the JSONL file is missing — output is tagged `(archived)` in the header
+
+**Schema:** `archived_messages` table in `recall.db` — `window_id` (FK to windows), `messages` (JSON array of rendered messages), `archived_at` timestamp.
+
+**What's preserved:** User and assistant text messages with line numbers, activity labels (skills/agents), timestamps. Tool call details and system messages are stripped (same as normal compact read).
+
+**What's lost:** Nothing that wasn't already lost — the archive captures the same content `read-window.js` would show. Raw JSONL content (tool inputs/outputs, system reminders) is not archived since it's not part of the conversational recall.
 
 ## Decision Detection
 
@@ -120,4 +139,5 @@ The tokenizer expands contractions before splitting ("we've" → "we have", "I'l
 - **window_projects** — project name, frequency per window
 - **window_files** — file path, tool name, line numbers per window
 - **window_terms** — term, source (user/assistant), count, line numbers per window
+- **archived_messages** — window_id (PK/FK), messages (JSON), archived_at
 - **stopword_candidates** — term, noise_count, relevant_count, promoted flag, last_seen

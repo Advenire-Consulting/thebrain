@@ -10,7 +10,9 @@ Spatial map of the codebase. Knows where every significant file lives, what it i
 4. **Calculates blast radius** — how many files depend on a given file
 5. **Indexes identifiers** — every function, class, variable, CSS selector across all projects with line numbers
 6. **Searches content** — project-aware grep with context, and pattern variant classification with direction detection
-7. **Provides spatial data** to the hypothalamus for safety checks and to CC2 for project resolution
+7. **Cross-checks specs and plans** for collisions (file overlaps, schema conflicts, dependency order) before planning
+8. **Dispatches plan chunks** as self-contained assignments for executor sessions
+9. **Provides spatial data** to the hypothalamus for safety checks and to CC2 for project resolution
 
 ## Key Files
 
@@ -27,6 +29,8 @@ Spatial map of the codebase. Knows where every significant file lives, what it i
 | `scripts/query.js` | CLI — map, resolve, blast-radius, lookup, find, structure, schema |
 | `scripts/grep.js` | Project-aware content search — regex across all projects with context |
 | `scripts/classify.js` | Pattern variant classifier — categorize files by URL/convention variants with direction detection |
+| `scripts/spec-check.js` | Spec/plan cross-checker and chunk dispatcher for plan execution |
+| `lib/spec-check/` | Spec-check internals — frontmatter parsing, collision detection, chunk extraction, report formatting |
 | `scripts/term-scan-cli.js` | Incremental term index scan across all projects |
 | `~/.claude/brain/hippocampus/*.dir.json` | Output — one DIR file per project |
 | `~/.claude/brain/hippocampus/terms.db` | Term index database |
@@ -75,6 +79,79 @@ Takes multiple named regex variants, scans all project files, reports which file
 Config files (JSON) support `exclude` patterns and a `name` field. Useful for reusable audits.
 
 Use cases: migration audits ("how much code uses old pattern vs new?"), convention enforcement, routing analysis across Caddy/Express/frontend boundaries.
+
+## Spec / Plan Cross-Check + Chunk Dispatch
+
+Two capabilities in one tool: collision detection across design docs, and chunk extraction for dispatching plan work to executor sessions.
+
+### Cross-Check — Collision Detection
+
+```
+node $PLUGIN_ROOT/hippocampus/scripts/spec-check.js --dir <path> [--dir <path>...]
+```
+
+Scans a folder recursively for spec and plan markdown files with YAML frontmatter. Detects:
+- **File collisions** — multiple specs/plans touching the same file
+- **Schema collisions** — overlapping database table definitions
+- **Dangling subscribes** — event listeners with no matching emitter
+- **Double emits** — same file emitting the same event twice
+- **Dependency order issues** — plans depending on unfinished specs
+
+Produces a two-section report: human-readable summary + Claude-readable index with line-range references.
+
+Use `--strict` to exit non-zero if any headerless (no frontmatter) docs are found — useful for enforcing the frontmatter convention.
+
+### Frontmatter Templates
+
+```
+node $PLUGIN_ROOT/hippocampus/scripts/spec-check.js --template spec
+node $PLUGIN_ROOT/hippocampus/scripts/spec-check.js --template plan
+```
+
+Prints a ready-to-fill YAML frontmatter block. Every spec and plan must have frontmatter — the template is the canonical schema reference.
+
+### Chunk Extraction — Plan Dispatch
+
+Plans are structured as `## Chunk N — <name>` sections, each self-contained enough for an independent executor session. The chunk extractor assembles everything an executor needs into a single file:
+
+1. **Standing-rules preamble** — no restarts, no commits, respect touched files list
+2. **Plan header** — everything above the first chunk (goal, architecture decisions, tech stack)
+3. **Prior agent observations** — from the sibling `<plan-stem>.observations.md` file
+4. **Chunk body** — the specific `## Chunk N` section verbatim
+
+```
+node $PLUGIN_ROOT/hippocampus/scripts/spec-check.js --list-chunks <plan>
+node $PLUGIN_ROOT/hippocampus/scripts/spec-check.js --chunk-content <plan> <n>
+node $PLUGIN_ROOT/hippocampus/scripts/spec-check.js --dispatch <plan>
+```
+
+| Command | What it does |
+|---------|-------------|
+| `--list-chunks <plan>` | List chunks with line ranges and line counts |
+| `--chunk-range <plan> <n>` | Print `L<start>-L<end>` for one chunk |
+| `--chunk-content <plan> <n>` | Print full assembled assignment for chunk n to stdout |
+| `--dispatch <plan>` | Write all chunk assignments to `<plan-dir>/chunks/` and append read instructions to `~/claude/command-log.txt` |
+
+`--dispatch` is the primary surface. It creates the `chunks/` sibling directory, writes one file per chunk (`<plan-stem>-chunk-<N>.md`), and appends one-line read instructions to the command log for easy copy-paste into executor sessions.
+
+### Chunk Lifecycle
+
+When an executor finishes a chunk, two things happen automatically (enforced by the standing-rules preamble):
+
+1. **Observations** — the executor appends a `## Chunk N` section to `<plan-stem>.observations.md` noting things seen but NOT fixed (out of scope). The next chunk's executor sees them via `--chunk-content`.
+2. **Completion** — the executor moves its chunk file into `chunks/completed/` (creating the subfolder if needed). This gives a clear visual signal of progress: remaining work is in `chunks/`, finished work is in `chunks/completed/`.
+
+### Key Lib Files
+
+| File | Purpose |
+|------|---------|
+| `lib/spec-check/frontmatter-parser.js` | YAML frontmatter extraction and validation |
+| `lib/spec-check/collision-detector.js` | File, schema, event, and dependency collision detection |
+| `lib/spec-check/chunk-extractor.js` | Chunk listing, assignment assembly, dispatch payload generation |
+| `lib/spec-check/report-formatter.js` | Human summary + Claude index report rendering |
+| `lib/spec-check/schema.js` | Frontmatter schema definitions and template rendering |
+| `lib/spec-check/walker.js` | Recursive directory walker for spec/plan discovery |
+| `lib/spec-check/yaml-parser.js` | Lightweight YAML parser (no external dependencies) |
 
 ## DIR File Shape
 
