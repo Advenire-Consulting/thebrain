@@ -292,7 +292,6 @@ Show the user what was set up:
 | Command | When to use it |
 |---------|---------------|
 | `/hello` | Start of a session — orients Claude on what you've been working on recently |
-| `/continue` | After context compaction, or to resume a specific project |
 | `/wrapup` | End of a session — saves what you worked on for next time |
 | `/dopamine +` | Something went well — reinforce the pattern |
 | `/dopamine -` | Something went wrong — flag it so it doesn't happen again |

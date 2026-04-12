@@ -20,11 +20,14 @@ Brain rules and behavioral data are already loaded by session start hooks — th
 
 4. **Don't** preload conversation data. The PFC entries are the summary. Only search CC2 if the user asks about something specific or you need more context mid-task.
 
-5. **dlPFC working memory** — Check if `~/.claude/brain/dlpfc-live.md` exists by reading it. If it has content:
-   - Mention what's there: "Working memory available for [project(s)] — [N] hot files tracked."
-   - Ask: "Want me to load it for this session?"
-   - If yes, read the file and internalize the context.
-   - If no, skip — zero tokens spent on it.
-   If the file doesn't exist or is empty, skip silently.
+5. **dlPFC working memory** — First check whether the dlPFC region is enabled. Read `~/.claude/brain/config.json` and look at `regions.dlpfc`. If it is `false` (or `{ "enabled": false }`), skip this step entirely — do not read `dlpfc-live.md`, do not mention it. If it is `true`, omitted, or `{ "enabled": true }`, proceed:
+   - Check if `~/.claude/brain/dlpfc-live.md` exists by reading it. If it has content:
+     - Mention what's there: "Working memory available for [project(s)] — [N] hot files tracked."
+     - Ask: "Want me to load it for this session?"
+     - If yes, read the file and internalize the context.
+     - If no, skip — zero tokens spent on it.
+   - If the file doesn't exist or is empty, skip silently.
+
+   (Note: this config check is a temporary measure. The proper fix is to make commands config-aware via a build step the way `brain-tools.md` is regenerated at session start.)
 
 6. Greet briefly. Mention what the recent sessions touched (scope + summary) so the user knows you're oriented. Ask what they'd like to work on.

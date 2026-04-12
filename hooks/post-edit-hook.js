@@ -96,7 +96,7 @@ function updateDIREntry(absolutePath, projectDir, projectName, hippocampusDir) {
  * based on updated blast radius data.
  */
 function resetHypothalamusWarning(sessionId, filePath) {
-  const stateFile = path.join(require('os').homedir(), '.claude', `hypothalamus_state_${sessionId}.json`);
+  const stateFile = path.join(require('os').homedir(), '.claude', 'brain', 'hypothalamus', 'state', `hypothalamus_state_${sessionId}.json`);
   try {
     let state = JSON.parse(fs.readFileSync(stateFile, 'utf-8'));
     if (!Array.isArray(state)) state = [];

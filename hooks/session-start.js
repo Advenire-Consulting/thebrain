@@ -176,6 +176,20 @@ function main() {
   // Sync tool-index to ~/.claude/rules/ if source changed
   syncToolIndex();
 
+  // Clean up stale hypothalamus state files from previous sessions
+  const hypoStateDir = path.join(HOME, '.claude', 'brain', 'hypothalamus', 'state');
+  try {
+    if (fs.existsSync(hypoStateDir)) {
+      for (const f of fs.readdirSync(hypoStateDir)) {
+        if (f.startsWith('hypothalamus_state_') && f.endsWith('.json')) {
+          fs.unlinkSync(path.join(hypoStateDir, f));
+        }
+      }
+    }
+  } catch (err) {
+    process.stderr.write(`TheBrain: hypothalamus state cleanup failed — ${err.message}\n`);
+  }
+
   // Regenerate prefrontal if stale or missing
   const { isRegionEnabled: isRegEnabled } = require(path.join(PLUGIN_ROOT, 'lib', 'config'));
   if (isRegEnabled('prefrontal') && fs.existsSync(SIGNALS_DB)) {
@@ -252,7 +266,7 @@ function main() {
     }
 
     if (sessionCount <= 5) {
-      parts.push('> **Brain commands available:** `/hello` (session greeting) | `/continue` (restore context) | `/wrapup` (save session state) | `/dopamine` (flag behavioral moments) | `/oxytocin` (flag relational dynamics). Use `/wrapup` at the end of each session to build recall.');
+      parts.push('> **Brain commands available:** `/hello` (session greeting) | `/wrapup` (save session state) | `/dopamine` (flag behavioral moments) | `/oxytocin` (flag relational dynamics). Use `/wrapup` at the end of each session to build recall.');
       parts.push('');
     }
 

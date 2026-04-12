@@ -357,7 +357,7 @@ switch (command) {
     const file = args[1];
     const section = args[2];
     if (!file || !section || !['script', 'template', 'style'].includes(section)) {
-      console.error('Usage: --section <file> script|template|style [--project p]');
+      console.error('Usage: --section <file> script|template|style [start-end] [--project p]');
       process.exit(1);
     }
     const project = flag('--project');
@@ -403,6 +403,17 @@ switch (command) {
       // Trim leading/trailing blank lines from template section
       while (start < end && source[start].trim() === '') start++;
       while (end > start && source[end - 1].trim() === '') end--;
+    }
+
+    // Optional sub-range: --section file style 50-120 slices within the section
+    const rangeArg = args[3] && /^\d+-\d+$/.test(args[3]) ? args[3] : null;
+    if (rangeArg) {
+      const [rStart, rEnd] = rangeArg.split('-').map(Number);
+      const sectionLen = end - start;
+      const clampedStart = Math.max(1, Math.min(rStart, sectionLen));
+      const clampedEnd = Math.max(clampedStart, Math.min(rEnd, sectionLen));
+      start = start + clampedStart - 1;
+      end = start + (clampedEnd - clampedStart + 1);
     }
 
     // Output with 1-indexed line numbers for easy reference
@@ -466,7 +477,7 @@ Commands:
   --find <identifier> [--project p]    Find every occurrence across all projects
   --structure <file> [--project p]     Show function/class/CSS definitions with line numbers
   --body <file> <name> [--project p]   Extract a function/definition body from source
-  --section <file> script|template|style [--project p]  Extract Svelte file section
+  --section <file> script|template|style [N-M] [--project p]  Extract Svelte file section (optional sub-range)
   --diff-symbols <file-a> <file-b> [--project p]        Compare definitions between two files
 
 Examples:
@@ -480,6 +491,7 @@ Examples:
   --structure server-utils.js
   --body ThreadPanel.svelte handleSend --project drip
   --section ThreadPanel.svelte script --project drip
+  --section ThreadPanel.svelte style 50-120 --project drip
   --diff-symbols ThreadPanel.svelte ThreadConversation.svelte --project drip`);
     break;
 }

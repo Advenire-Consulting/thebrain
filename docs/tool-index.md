@@ -24,7 +24,7 @@ node $PLUGIN_ROOT/hippocampus/scripts/query.js <command>
 | `--find <identifier>` | Code identifiers across all projects with line numbers. For arbitrary strings, use Grep. |
 | `--structure <file>` | Function/class/interface/type/def definitions with line numbers (term index) |
 | `--body <file> <name>` | Extract a named function/definition body from source — saves a Read call |
-| `--section <file> script\|template\|style` | Extract a Svelte file section by name — drift-proof alternative to line-range reads |
+| `--section <file> script\|template\|style [N-M]` | Extract a Svelte file section — optional sub-range (1-indexed within section) for token-efficient reads |
 | `--diff-symbols <file-a> <file-b>` | Compare definitions between two files — shows only-in-A, only-in-B, in-both |
 | `--list-aliases` | Browse all conversational aliases |
 | `--schema [--project p]` | Database table structures |
@@ -223,7 +223,7 @@ project parks its design docs.
 | "What's the DB schema?" | `--schema` |
 | "What functions are in this file?" | `--structure <file>` |
 | "Show me this function's code" | `--body <file> <name>` |
-| "Show me the script/template/style block" | `--section <file> script\|template\|style` |
+| "Show me the script/template/style block" | `--section <file> script\|template\|style [N-M]` |
 | "Did the extraction leave duplicates?" | `--diff-symbols <file-a> <file-b>` |
 | "When did we work on X?" / "What's the state of X?" | Project memory files |
 | "What was the reasoning behind X?" | Project memory for pointers, CC2 for detail |

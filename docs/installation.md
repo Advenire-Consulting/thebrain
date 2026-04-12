@@ -8,7 +8,7 @@ A cognitive layer for Claude Code that gives your AI assistant spatial awareness
 - **Cerebral Cortex v2** — Conversation recall: search past sessions, read decision context, drill into reasoning
 - **Hypothalamus** — Safety hooks: warns before touching sensitive files, surfaces blast radius on edits
 - **Prefrontal** — Behavioral system: learned lessons and relational forces that shape how Claude works with you
-- **Commands** — `/hello`, `/continue`, `/wrapup`, `/dopamine`, `/oxytocin`
+- **Commands** — `/hello`, `/wrapup`, `/dopamine`, `/oxytocin`
 
 ## Installation
 
@@ -67,7 +67,6 @@ Configure workspaces in `~/.claude/brain/config.json`.
 | Command | What it does |
 |---------|-------------|
 | `/hello` | Session greeting — restores recent context |
-| `/continue` | Context preservation and restoration (4 modes) |
 | `/wrapup` | Save session state for next time |
 | `/dopamine` | Flag a behavioral moment — builds your lesson database |
 | `/oxytocin` | Flag a relational dynamic — builds your force system |

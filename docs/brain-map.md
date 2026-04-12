@@ -60,11 +60,11 @@ scripts/wrapup-mechanical.js    ──►     (orchestrator — calls everything
 | `hippocampus/*.dir.json` (9) | ~108K total | hypothalamus, CC2 search, CC2 extractor, query.js | hippocampus/scan.js | Yes — scan.js regenerates from codebase |
 | `hippocampus/terms.db` | 47MB | query.js (--find, --structure) | term-scan-cli.js, post-edit-hook.js | Yes — term-scan-cli.js rebuilds from codebase |
 | `signals.db` | 1.3MB | generate-prefrontal.js, session-start hook | lessons.js, seed-signals.js | **No** — accumulated behavioral lessons |
-| `prefrontal-cortex.md` | ~2K | /hello, /continue, pfc-trim.js, session-start hook | /wrapup (Claude writes entries) | No — session summaries written by Claude |
+| `prefrontal-cortex.md` | ~2K | /hello, pfc-trim.js, session-start hook | /wrapup (Claude writes entries) | No — session summaries written by Claude |
 | `prefrontal-live.md` | ~9K | session-start hook (loaded into context) | generate-prefrontal.js | Yes — generated from signals.db |
 | `working-memory.db` | ~small | dlpfc/generator.js, session-start hook, git-briefing.js | dlpfc hooks, dlpfc/wrapup-step.js | **Partially** — context_notes are Claude-authored, not rebuildable. file_heat includes last_touched_at for git re-engagement. |
 | `dlpfc-live.md` | ~1K | session-start hook (loaded into context) | dlpfc/generator.js | Yes — generated from working-memory.db |
-| `.pfc-loaded-size` | 4B | /hello, /continue (skip-read check) | session-start hook, wrapup-mechanical.js | Yes — just a byte count |
+| `.pfc-loaded-size` | 4B | /hello (skip-read check) | session-start hook, wrapup-mechanical.js | Yes — just a byte count |
 
 ### $PLUGIN_ROOT/cerebral-cortex-v2/
 
@@ -176,7 +176,6 @@ Step 3:  Update .pfc-loaded-size   → size marker for skip-read optimization
 |---------|-------|--------|
 | `/hello` | prefrontal-cortex.md, .pfc-loaded-size, dlpfc-live.md | — |
 | `/wrapup` | project memory files | prefrontal-cortex.md, project memory, working-memory.db (context notes), then calls wrapup-mechanical.js |
-| `/continue` | prefrontal-cortex.md, project memory | prefrontal-cortex.md, project memory, working-memory.db (context notes) |
 | `/dopamine` | signals.db (surface existing lessons) | signals.db (insert/reinforce lesson) |
 | `/oxytocin` | signals.db (surface existing forces) | signals.db (insert/reinforce force) |
 | `/db-backup` | — | ~/backups/thebrain/ (copies of signals.db, terms.db, DIR files, cc2 recall.db, working-memory.db) |

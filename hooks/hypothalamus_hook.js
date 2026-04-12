@@ -102,7 +102,7 @@ function main() {
   if (dirs.length === 0) process.exit(0);
 
   const websitesRoot = cwd;
-  const stateDir = path.join(require('os').homedir(), '.claude');
+  const stateDir = path.join(require('os').homedir(), '.claude', 'brain', 'hypothalamus', 'state');
 
   if (toolName === 'Bash') {
     handleBash(toolInput, dirs, websitesRoot, config, sessionId, stateDir);

@@ -256,7 +256,7 @@ node $PLUGIN_ROOT/scripts/generate-prefrontal.js
 
 ### Short-term recall (`prefrontal-cortex.md`)
 
-This is separate from `prefrontal-live.md`. It holds the last 3 session summaries written by `/wrapup` or `/continue save`. Format:
+This is separate from `prefrontal-live.md`. It holds the last 3 session summaries written by `/wrapup`. Format:
 
 ```
 ## YYYY-MM-DD HH:MM — project-or-scope [SESSION_ID]
@@ -414,11 +414,7 @@ Create or edit `~/.claude/brain/hypothalamus-config.json`:
 | Command | Usage | What it does |
 |---------|-------|-------------|
 | `/hello` | Start of session | Restores recent context from PFC |
-| `/continue` | After compaction | Re-grounds in current session |
-| `/continue save` | Before stopping | Saves project state + runs wrapup |
-| `/continue <project>` | New session | Picks up a specific project |
-| `/continue workspace` | New session | Full workspace status overview |
-| `/wrapup` | Before stopping | Alias for `/continue save` |
+| `/wrapup` | Before stopping | Saves project state + runs mechanical wrapup |
 | `/dopamine +` | Mid-session | Flag a positive pattern |
 | `/dopamine -` | Mid-session | Flag a pain point |
 | `/oxytocin new` | Mid-session | Create a new relational force |

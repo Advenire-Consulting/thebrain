@@ -75,7 +75,7 @@ Caps: 15 files per project, 3 clusters per project. Target: ~200-400 tokens per 
 
 ## Opt-In Gates
 
-- **Hello/continue:** If hot entries exist, asks "Want to load the dlPFC working memory?"
+- **Hello:** If hot entries exist, asks "Want to load the dlPFC working memory?"
 - **Wrapup:** First question: "Should this session be logged to working memory (dlPFC)?"
 
 No other user interaction. Decay only runs on opted-in wrapups.

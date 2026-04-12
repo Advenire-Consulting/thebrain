@@ -18,7 +18,7 @@ Out of the box, Claude Code starts every session blank — no memory of past con
 
 **Tracks what you're working on.** File-level working memory that knows which files are hot right now. Reads and edits build heat; idle files cool off exponentially between sessions. Session start loads the hottest files with context — what you were doing with each one and why — so Claude picks up mid-thought, not mid-codebase.
 
-**Carries context across sessions.** `/wrapup` saves where you left off. `/continue` picks it back up. Short-term recall survives session restarts and context compaction.
+**Carries context across sessions.** `/wrapup` saves where you left off. `/hello` restores it in the next session. Short-term recall survives session restarts.
 
 ## How it works
 
@@ -80,9 +80,9 @@ The rules engine. Compiles two data sources into decision gates that load into e
 
 Both compile into `prefrontal-live.md`, which loads at session start. The more you use `/dopamine` and `/oxytocin`, the more precisely Claude matches how you think and work.
 
-### Session Continuity — `/hello`, `/continue`, `/wrapup`
+### Session Continuity — `/hello` and `/wrapup`
 
-The glue. `/wrapup` captures what you worked on, what files you touched, and where you left off — written to short-term recall and indexed by the Cerebral Cortex. `/continue` restores that context in a new session or after context compaction. `/hello` is the lightweight greeting that orients Claude on what happened recently. Together they make Claude feel like it remembers, even across sessions and machines if you sync the folders.
+The glue. `/wrapup` captures what you worked on, what files you touched, and where you left off — written to short-term recall and indexed by the Cerebral Cortex. `/hello` restores that context in a new session, orienting Claude on what happened recently. Together they make Claude feel like it remembers, even across sessions and machines if you sync the folders.
 
 ### Region Toggles
 

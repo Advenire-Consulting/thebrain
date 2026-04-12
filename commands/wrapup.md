@@ -6,11 +6,15 @@ Save current project state. Do all steps in order — do not ask to proceed, jus
 
 **`$PLUGIN_ROOT` resolution:** Read the first line of `~/.claude/rules/brain-tools.md` — it contains `<!-- PLUGIN_ROOT: /path/to/thebrain -->`. Use that path wherever `$PLUGIN_ROOT` appears below.
 
-1. **dlPFC gate** — Ask: "Should this session be logged to working memory (dlPFC)?" Remember the answer for step 6.
+1. **dlPFC gate** — Check if dlPFC is enabled: `node -e "const{isRegionEnabled}=require('$PLUGIN_ROOT/lib/config');console.log(isRegionEnabled('dlpfc'))"`. If `false`, skip step 6 silently (do not ask, do not mention it). If `true`, proceed with step 6 later.
 
-2. **Identify the project** — based on what was worked on in this conversation.
+2. **Identify what was worked on** — Distinguish between a **project** (a codebase with its own directory — ongoing, has state worth tracking across sessions) and a **task** (work done within a project — a bug fix, audit, migration, feature). A task belongs in its parent project's memory, not its own file.
 
-3. **Update project memory** — Read the relevant project file in `~/.claude/projects/<workspace>/memory/projects/`. Update: current state, where we left off, any new design decisions, new file locations. If no file exists, create one.
+3. **Update project memory** — Read the relevant project file in `~/.claude/projects/<workspace>/memory/projects/`.
+   - If work maps to an existing project memory file — update that file.
+   - If work was a task within a project — add it to the parent project's file. Do not create a new file.
+   - If it's ambiguous (e.g., a migration that spans two projects) — ask the user: "Does [X] belong in [project]'s memory, or is this its own project?"
+   - Only create a new project memory file if the user confirms it's a genuinely new project.
 
 4. **Update MEMORY.md index** — Update the Projects list if it changed.
 
