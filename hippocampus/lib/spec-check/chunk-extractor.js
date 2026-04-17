@@ -34,15 +34,29 @@ function listChunks(planContents) {
   return out;
 }
 
-// Return the plan header — everything before the first chunk heading.
+// Return the plan header — everything before the first chunk heading,
+// with YAML frontmatter stripped (frontmatter is for cross-check tooling
+// and planners, not executors — chunks have their own Touched files lists).
 function extractPlanHeader(planContents) {
   const lines = planContents.split('\n');
+  let headerEnd = lines.length;
   for (let i = 0; i < lines.length; i++) {
     if (CHUNK_HEADING_RE.test(lines[i])) {
-      return lines.slice(0, i).join('\n').trimEnd();
+      headerEnd = i;
+      break;
     }
   }
-  return planContents.trimEnd();
+  // Strip YAML frontmatter (--- to closing ---) if present
+  let startAfterFrontmatter = 0;
+  if (lines[0] && lines[0].trim() === '---') {
+    for (let i = 1; i < headerEnd; i++) {
+      if (lines[i].trim() === '---') {
+        startAfterFrontmatter = i + 1;
+        break;
+      }
+    }
+  }
+  return lines.slice(startAfterFrontmatter, headerEnd).join('\n').trimEnd();
 }
 
 // Return the verbatim body of one chunk by number, or null if not found.
@@ -88,7 +102,10 @@ function buildPreamble(planPath, chunkNumber, planContents) {
     '  - Do NOT modify any file not listed in your chunk\'s "Touched files" section. No drive-by refactors.',
     '  - Line numbers in "Read first" may have shifted if prior chunks modified these files. Run `node thebrain-package/hippocampus/scripts/query.js --structure <file> --project <name>` to get current function/definition line numbers before reading. Also available: `--body <file> <function> --project <name>` (extract function source) and `--section <file> script|template|style --project <name>` (extract Svelte sections).',
     '  - Read any prior agent observations below before starting — they flag compounding issues you should account for.',
-    `  - When done, append a "## Chunk ${chunkNumber} — <YYYY-MM-DD>" section to ${obsName} noting anything you saw but did not fix (out-of-scope smells, conventions that drifted, things the next chunk should know). Do NOT fix them — just note them.`,
+    '  - Every `- [ ]` checkbox in this chunk is a REQUIRED in-scope task. Check it off (`- [x]`) only when the work is actually complete. Do not leave boxes unchecked at the end.',
+    `  - ${obsName} is for OUT-OF-SCOPE observations only — smells you noticed, conventions that drifted, things the next chunk should know. It is NOT a dumping ground for in-scope tasks you skipped or couldn't finish. If an in-scope checkbox cannot be completed, STOP and report the blocker to the user. Do not mark the chunk done, do not offload the task to ${obsName}.`,
+    `  - When done, append a "## Chunk ${chunkNumber} — <YYYY-MM-DD>" section to ${obsName} with only out-of-scope notes (or omit the section if there are none). Do NOT fix them — just note them.`,
+    '  - Do not report the chunk complete unless every `- [ ]` in the chunk is checked. If any box is unchecked, either finish it or surface it as a blocker — there is no third option.',
     '  - When done, report what changed and what the user needs to test.',
     `  - Final step: move this chunk file into a "completed" subfolder within the chunks directory (create it if it doesn't exist). Example: \`mkdir -p chunks/completed && mv chunks/${stem}-chunk-${chunkNumber}.md chunks/completed/\``,
   ];

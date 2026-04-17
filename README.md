@@ -1,5 +1,7 @@
 # TheBrain
 
+> **This repo has been succeeded by [greymatter](https://github.com/Advenire-Consulting/greymatter) and will no longer be developed.** greymatter is the leaner, unified rebuild of the ideas here.
+
 A Claude Code plugin that makes your AI remember, navigate, and learn.
 
 Out of the box, Claude Code starts every session blank — no memory of past conversations, no awareness of how your codebase connects, no learned preferences. TheBrain fixes that.

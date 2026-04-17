@@ -11,10 +11,26 @@ Save current project state. Do all steps in order — do not ask to proceed, jus
 2. **Identify what was worked on** — Distinguish between a **project** (a codebase with its own directory — ongoing, has state worth tracking across sessions) and a **task** (work done within a project — a bug fix, audit, migration, feature). A task belongs in its parent project's memory, not its own file.
 
 3. **Update project memory** — Read the relevant project file in `~/.claude/projects/<workspace>/memory/projects/`.
-   - If work maps to an existing project memory file — update that file.
-   - If work was a task within a project — add it to the parent project's file. Do not create a new file.
-   - If it's ambiguous (e.g., a migration that spans two projects) — ask the user: "Does [X] belong in [project]'s memory, or is this its own project?"
-   - Only create a new project memory file if the user confirms it's a genuinely new project.
+
+   Project memory files are **thin current-state snapshots**, not session logs. They answer "where are we right now?" — not "what happened in each session?" Session history lives in CC2 (conversation recall) and should NOT be written here.
+
+   A project memory file should contain:
+   - **Current state** — what's in progress, what's uncommitted, what's blocked. Replace (not append to) the previous current state.
+   - **What's next** — where the next session picks up.
+   - **Key decisions still load-bearing** — only decisions that actively guide upcoming work. Decisions behind completed/shipped work belong in the project's own CLAUDE.md or are recoverable via CC2.
+
+   Do NOT:
+   - Append detailed session logs (bugs found, implementation details, task-by-task execution notes)
+   - Stack dated "Current State" sections — there is only ONE current state, overwrite the old one
+   - Duplicate information that's in the project's CLAUDE.md (stack, key files, design conventions)
+   - Write history that CC2 already captured from the conversation
+
+   If this session produced convention/reference material (architectural patterns, file locations, naming standards), that belongs in the project's own CLAUDE.md (`<project-dir>/CLAUDE.md`), not in the memory file.
+
+   If work maps to an existing project — update that file per the rules above.
+   If work was a task within a project — update the parent project's file. Do not create a new file.
+   If ambiguous — ask the user: "Does [X] belong in [project]'s memory, or is this its own project?"
+   Only create a new project memory file if the user confirms it's a genuinely new project.
 
 4. **Update MEMORY.md index** — Update the Projects list if it changed.
 
